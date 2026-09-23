@@ -1,0 +1,20 @@
+[project]
+name = "labtrack-instrument-simulator"
+version = "0.1.0"
+description = "Simulador de instrumentos laboratoriais que envia resultados à API do LabTrack"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "httpx>=0.27",
+]
+
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["simulator*"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
