@@ -1,7 +1,7 @@
 """Testes que dependem de recursos do PostgreSQL (triggers, migrações, concorrência)."""
 
 import threading
-from datetime import date, timedelta
+from datetime import UTC, date, datetime, timedelta
 
 import pytest
 from sqlalchemy import Engine, select, text
@@ -10,9 +10,11 @@ from sqlalchemy.exc import DBAPIError
 from app.core.exceptions import AppError
 from app.database.session import build_session_factory
 from app.domain.enums import SampleStatus
-from app.models import AuditLog, Instrument, InstrumentResult, TestResult
+from app.models import AuditLog, Instrument, InstrumentResult, TestResult, User
+from app.schemas.samples import SampleCreate
 from app.services.audit_service import AuditService
 from app.services.instrument_integration_service import InstrumentIntegrationService
+from app.services.sample_service import SampleService
 
 from .conftest import create_lab_data
 
@@ -40,6 +42,7 @@ def _insert_audit(engine: Engine) -> int:
         return log.id
 
 
+@pytest.mark.rules("RN-15")
 @pytest.mark.parametrize(
     "statement",
     [
@@ -74,6 +77,7 @@ def test_migrations_match_models(postgres_engine: Engine) -> None:
         assert compare_metadata(context, Base.metadata) == []
 
 
+@pytest.mark.rules("RN-22")
 def test_concurrent_instrument_results_never_overwrite(postgres_engine: Engine) -> None:
     factory = build_session_factory(postgres_engine)
     with factory() as session:
@@ -116,4 +120,53 @@ def test_concurrent_instrument_results_never_overwrite(postgres_engine: Engine) 
         assert result.is_current and result.version == 1
         statuses = sorted(session.scalars(select(InstrumentResult.status)).all())
         assert statuses == ["ACCEPTED", "REJECTED"]
+        assert AuditService(session).verify().valid is True
+
+
+@pytest.mark.rules("RN-01")
+def test_concurrent_registrations_get_distinct_sequential_codes(postgres_engine: Engine) -> None:
+    """O advisory lock serializa a numeração: sem código repetido nem lacuna."""
+    factory = build_session_factory(postgres_engine)
+    with factory() as session:
+        lab = create_lab_data(session)
+        analyst_id, product_id, client_id = (
+            lab.analyst.id,
+            lab.sample.product_id,
+            lab.sample.client_id,
+        )
+
+    registrations = 6
+    received_at = datetime.now(UTC) - timedelta(hours=1)
+    barrier = threading.Barrier(registrations)
+    codes: list[str] = []
+    errors: list[str] = []
+
+    def register() -> None:
+        with factory() as session:
+            actor = session.get(User, analyst_id)
+            data = SampleCreate(
+                product_id=product_id,
+                client_id=client_id,
+                lot_number="L-CONCORRENTE",
+                origin="PRODUCTION",
+                received_at=received_at,
+            )
+            barrier.wait()
+            try:
+                codes.append(SampleService(session).create(data, actor).sample_code)
+            except Exception as error:
+                errors.append(repr(error))
+
+    threads = [threading.Thread(target=register) for _ in range(registrations)]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join(timeout=30)
+
+    assert errors == []
+    prefix = f"SMP-{received_at.year}-"
+    assert all(code.startswith(prefix) for code in codes)
+    numbers = sorted(int(code.removeprefix(prefix)) for code in codes)
+    assert numbers == list(range(numbers[0], numbers[0] + registrations))
+    with factory() as session:
         assert AuditService(session).verify().valid is True

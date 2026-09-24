@@ -4,7 +4,8 @@ from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import pytest
-from sqlalchemy import func, select, update
+from sqlalchemy import func, select, text, update
+from sqlalchemy.exc import DBAPIError
 from sqlalchemy.orm import Session
 
 from app.domain.audit import Actor, AuditAction
@@ -19,6 +20,28 @@ def _search(lab: Lab, **params: Any) -> dict[str, Any]:
     response = lab.client.get(f"{API}/audit-logs", headers=lab.reviewer, params=params)
     assert response.status_code == 200, response.text
     return response.json()
+
+
+def _write_bypassing_protection(db: Session, statement: Any) -> None:
+    """Altera o audit trail direto no banco, como alguém fora da aplicação faria.
+
+    No PostgreSQL o trigger bloqueia a alteração; o teste confirma isso e depois o
+    desliga (o dono da tabela pode), para mostrar que a cadeia de hashes ainda
+    detecta a adulteração. No SQLite não há trigger.
+    """
+    if db.get_bind().dialect.name == "postgresql":
+        with pytest.raises(DBAPIError, match="append-only"):
+            db.execute(statement)
+        db.rollback()
+        db.execute(text(f"ALTER TABLE audit_logs DISABLE TRIGGER {_UPDATE_TRIGGER}"))
+        db.execute(statement)
+        db.execute(text(f"ALTER TABLE audit_logs ENABLE TRIGGER {_UPDATE_TRIGGER}"))
+    else:
+        db.execute(statement)
+    db.commit()
+
+
+_UPDATE_TRIGGER = "trg_audit_logs_no_update_delete"
 
 
 def _timeline(lab: Lab, sample_id: int, **params: Any) -> dict[str, Any]:
@@ -106,13 +129,13 @@ def test_search_date_range_is_inclusive_and_normalizes_timezone(lab: Lab) -> Non
 
 def test_pagination_is_stable_with_equal_timestamps(lab: Lab, db: Session) -> None:
     sample = lab.create_sample()
-    # Empate proposital no banco de teste SQLite; a API continua sem escrita.
-    db.execute(
+    # Empate proposital de horário, direto no banco; a API continua sem escrita.
+    _write_bypassing_protection(
+        db,
         update(AuditLog)
         .where(AuditLog.sample_id == sample["id"])
-        .values(occurred_at=datetime(2026, 9, 23, tzinfo=UTC))
+        .values(occurred_at=datetime(2026, 9, 23, tzinfo=UTC)),
     )
-    db.commit()
     first = _search(lab, sample_id=sample["id"], size=1, page=1)
     second = _search(lab, sample_id=sample["id"], size=1, page=2)
     assert first["total"] == second["total"] == 2
@@ -158,6 +181,7 @@ def test_invalid_search_rules(lab: Lab, params: dict[str, str], code: str) -> No
     assert response.json()["error"]["code"] == code
 
 
+@pytest.mark.rules("RN-15")
 def test_verify_complete_chain_after_full_workflow_is_read_only(lab: Lab, db: Session) -> None:
     for _ in range(3):
         lab.create_sample()
@@ -201,9 +225,10 @@ def test_verify_reports_first_corrupted_record(
 ) -> None:
     lab.create_sample()
     ids = list(db.scalars(select(AuditLog.id).order_by(AuditLog.id)))
-    # Simula adulteração fora da aplicação. PostgreSQL bloqueia por trigger.
-    db.execute(update(AuditLog).where(AuditLog.id == ids[2]).values({field: value}))
-    db.commit()
+    # Adulteração fora da aplicação (no PostgreSQL, burlando o trigger).
+    _write_bypassing_protection(
+        db, update(AuditLog).where(AuditLog.id == ids[2]).values({field: value})
+    )
 
     response = lab.client.get(f"{API}/audit-logs/verify", headers=lab.admin)
 
@@ -216,6 +241,7 @@ def test_verify_reports_first_corrupted_record(
     }
 
 
+@pytest.mark.rules("RN-15", "RN-18")
 def test_timeline_retains_oos_correction_and_workflow(lab: Lab) -> None:
     sample = lab.create_sample()
     unrelated = lab.create_sample()

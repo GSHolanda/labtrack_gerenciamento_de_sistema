@@ -18,14 +18,12 @@ from app.cli.demo import DemoDataError, DemoSummary, seed_demo
 from app.core.config import Settings
 from app.database.base import Base
 from app.database.session import build_engine, build_session_factory
-from app.domain.permissions import ROLE_DEFINITIONS
 from app.models import (
     AuditLog,
     Client,
     Instrument,
     InstrumentResult,
     Product,
-    Role,
     Sample,
     TestDefinition,
     TestResult,
@@ -33,17 +31,15 @@ from app.models import (
 )
 from app.services.audit_service import AuditService
 
+from ..conftest import ensure_roles
 from .conftest import API
 
 PASSWORD = "Demo@2026"
 
 
 def _create_schema(session: Session) -> None:
-    Base.metadata.create_all(session.get_bind())
-    session.add_all(
-        Role(code=code, name=name, description=description)
-        for code, (name, description) in ROLE_DEFINITIONS.items()
-    )
+    Base.metadata.create_all(session.get_bind())  # no PostgreSQL, as migrações já criaram
+    ensure_roles(session)
     session.commit()
 
 

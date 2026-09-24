@@ -6,7 +6,7 @@ total, regras de negócio de um ambiente regulado, integração com instrumentos
 e audit trail imutável.
 
 > 🚧 **Em desenvolvimento.** O projeto é construído em 14 etapas incrementais.
-> Veja o [plano de implementação](docs/roadmap.md). Etapa atual: **11 de 14 concluídas**.
+> Veja o [plano de implementação](docs/roadmap.md). Etapa atual: **12 de 14 concluídas**.
 
 ---
 
@@ -82,6 +82,7 @@ labtrack/
 | [Modelo de dados](docs/database.md)              | Diagrama ER, dicionário de dados, constraints e índices         |
 | [API](docs/api.md)                               | Endpoints, matriz de permissões, integração com instrumentos    |
 | [Ciclo da amostra](docs/sample-lifecycle.md)     | Máquina de estados, regras de negócio (RN-01 a RN-28), timeline |
+| [Testes](docs/testing.md)                        | Camadas de teste, CI, cobertura e matriz regra → teste          |
 | [Plano de implementação](docs/roadmap.md)        | As 14 etapas e o status de cada uma                             |
 
 ## Como executar (estado atual)
@@ -120,7 +121,12 @@ prévia na interface e PDF com identificação, resultados, histórico de corre�
 (inclusive OOS), testes cancelados e parecer da revisão. Cada emissão fica no
 audit trail com a impressão digital SHA-256 impressa no rodapé do documento.
 
-A próxima entrega consolida os testes e o pipeline de CI (ETAPA 12).
+A ETAPA 12 consolida os testes: fluxo ponta a ponta, cenários negativos de
+todas as regras de negócio com rastreabilidade regra → teste, a suíte inteira
+também no PostgreSQL, cobertura mínima e integração contínua no GitHub Actions.
+Veja a [estratégia de testes](docs/testing.md).
+
+A próxima entrega empacota tudo em contêineres (ETAPA 13).
 
 **Backend**
 

@@ -22,12 +22,14 @@ from app.services.report_pdf import pdf_text
 SAO_PAULO = ZoneInfo("America/Sao_Paulo")
 
 
+@pytest.mark.rules("RN-27")
 @pytest.mark.parametrize("status", [SampleStatus.APPROVED, SampleStatus.REJECTED])
 def test_reviewed_samples_are_reportable(status: SampleStatus) -> None:
     assert is_reportable(status)
     ensure_reportable(status, "SMP-2026-0001")
 
 
+@pytest.mark.rules("RN-27")
 @pytest.mark.parametrize(
     "status",
     [
@@ -48,6 +50,7 @@ def test_other_statuses_have_no_report(status: SampleStatus) -> None:
     }
 
 
+@pytest.mark.rules("RN-28")
 def test_fingerprint_ignores_representation_but_not_content() -> None:
     base = {
         "sample": {"code": "SMP-2026-0001", "received_at": datetime(2026, 9, 21, 13, 0)},

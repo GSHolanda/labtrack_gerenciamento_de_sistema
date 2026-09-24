@@ -26,7 +26,8 @@ Leia primeiro: `docs/architecture.md`, `docs/database.md`, `docs/api.md`,
 | 9 Frontend (todas as áreas do menu, timeline visual) | ✅ concluída e validada |
 | 10 Dashboard (indicadores, séries, gráficos acessíveis) | ✅ concluída e validada |
 | 11 Relatórios (prévia JSON, PDF auditado com impressão digital) | ✅ concluída e validada |
-| 12 a 14 | pendentes (ver `docs/roadmap.md`) |
+| 12 Testes (E2E, rastreabilidade RN, PostgreSQL, cobertura, CI) | ✅ concluída e validada |
+| 13 e 14 | pendentes (ver `docs/roadmap.md`) |
 
 ## ETAPA 6: entrega concluída
 - `app/domain/specification.py::evaluate()` (OOS, limites inclusivos, Decimal) + testes unitários.
@@ -194,15 +195,38 @@ Leia primeiro: `docs/architecture.md`, `docs/database.md`, `docs/api.md`,
   timeline e audit); botão "Relatório" no detalhe da amostra; evento
   "Relatório emitido (PDF)" na timeline. `test/utils.tsx` aceita `Response` pronta.
 
-### Próximos passos: ETAPA 12 (testes)
-1. Consolidar um fluxo ponta a ponta (registro → análise → OOS → correção →
-   revisão → relatório) e revisar a cobertura dos cenários negativos de RN-01 a
-   RN-28 (hoje espalhados por `tests/api/test_*.py`); listar lacunas antes de
-   escrever testes novos.
-2. Rodar a suíte inteira também contra PostgreSQL no CI (serviço `postgres` com
-   `LABTRACK_TEST_DATABASE_URL`) além do SQLite em memória.
-3. Pipeline de CI (GitHub Actions): Ruff + pytest do backend e do simulador,
-   `tsc`, oxlint, Vitest e `vite build` do frontend.
+## ETAPA 12: entrega concluída
+- Estratégia e números em `docs/testing.md` (camadas, comandos, CI, matriz).
+- Rastreabilidade: marcador `rules` (registrado no `pyproject.toml`, com
+  `--strict-markers`); `tests/traceability.py` lê as RN de
+  `docs/sample-lifecycle.md` e os marcadores via AST, gera a matriz
+  (`python -m tests.traceability --write`) e `tests/unit/test_traceability.py`
+  exige regra sem lacuna, IDs válidos e matriz em dia. Todas as 28 regras cobertas.
+- `tests/api/test_end_to_end.py`: cenário único do cadastro do equipamento ao
+  relatório, conferindo a timeline inteira (ação, tipo e nome do ator).
+- Negativos novos em `test_samples.py` (cliente inativo, tolerância de relógio,
+  teste inativo/inexistente, teste concluído, amostra final imutável em sete
+  operações) e `test_postgres.py` (numeração concorrente de amostras).
+- `pytest --postgres` (em `tests/conftest.py`): `database_url` recria o schema
+  com as migrações a cada teste; `ensure_roles` reaproveita os perfis da
+  migração 0002. Os testes de adulteração do audit trail (`test_audit.py`)
+  confirmam o bloqueio do trigger e o desligam para provar a detecção pela cadeia.
+- Cobertura: `pytest-cov` com `[tool.coverage]` (ramos, mínimo 95%);
+  `@vitest/coverage-v8` com pisos em `vite.config.ts` e `npm run test:coverage`.
+- Frontend: testes novos para audit trail, resultados, catálogo de testes,
+  equipamentos, administração e ações com justificativa (reprovar, cancelar).
+- CI: `.github/workflows/ci.yml` com os jobs backend, backend-postgres
+  (serviço `postgres:16`), simulator e frontend.
+
+### Próximos passos: ETAPA 13 (Docker)
+1. Dockerfiles *multi-stage*: backend (Python 3.11 slim, usuário sem root,
+   `uvicorn`), frontend (build do Vite servido por Nginx com proxy `/api`).
+2. `docker compose up` sobe PostgreSQL, aplica as migrações, gera os dados de
+   demonstração (`seed-demo` com `--simulator-config`), API, frontend e o
+   simulador em ciclo. Atenção: `seed-demo` recusa banco com dados; o compose
+   deve rodá-lo só na primeira subida.
+3. Variáveis por `.env` (`LABTRACK_*`), healthchecks (`/api/v1/health/ready`) e
+   um job de CI que construa as imagens.
 
 ## Como rodar
 ```bash
@@ -211,31 +235,29 @@ cd backend && python -m venv .venv && . .venv/bin/activate && pip install -e ".[
 alembic upgrade head && python -m app.cli create-admin
 # ou, num banco vazio: python -m app.cli seed-demo --simulator-config ../instrument-simulator/config.json
 uvicorn app.main:app --reload    # /docs
-pytest                            # SQLite em memória
-LABTRACK_TEST_DATABASE_URL=postgresql+psycopg://labtrack:labtrack@localhost:5432/labtrack_test pytest
+pytest                            # SQLite em memória (pytest --cov: cobertura)
+LABTRACK_TEST_DATABASE_URL=postgresql+psycopg://labtrack:labtrack@localhost:5432/labtrack_test pytest --postgres
 ruff check . && ruff format --check .
 cd ../instrument-simulator && pip install -e ".[dev]" && pytest
 python -m simulator run --once   # com a API rodando e config.json gerado
 cd ../frontend && npm install && npm run dev   # http://localhost:5173, proxy /api → :8000
 npm test && npm run lint && npm run build
 ```
-Validação da ETAPA 11: backend **460 testes passando, nenhum pulado** (inclui os
-de PostgreSQL 16 real), simulador **41**, frontend **74** (Vitest), Ruff,
-oxlint, `tsc` e `vite build` limpos. No Chromium, sobre a demonstração no
-PostgreSQL: lista de relatórios, prévia de SMP-2026-0005 (OOS corrigido no teor
-do ativo), emissão com download do PDF e confirmação da impressão digital,
-evento na timeline e no audit trail, relatório reprovado, amostra não revisada
-(409 esperado, única resposta de erro), emissão pelo analista na lista, largura
-de celular sem rolagem horizontal e administrador sem acesso. Os PDFs gerados
-foram conferidos visualmente (uma página; relatório longo com cabeçalho da
-tabela repetido e "Página X de Y"). Os testes de API usam SQLite em memória; ele
-não preserva o fuso das datas, por isso as comparações normalizam UTC.
+Validação da ETAPA 12: backend **467 testes em SQLite** (+6 exclusivos do
+PostgreSQL) com cobertura de **96,9%** (ramos incluídos; mínimo 95%), **473 com
+`--postgres`** no PostgreSQL 16, simulador **41**, frontend **94** (Vitest) com
+**79%** das linhas, Ruff, oxlint, `tsc` e `vite build` limpos. Os jobs Python do
+CI foram ensaiados num virtualenv novo (`pip install -e "./backend[dev]"
+-e "./instrument-simulator[dev]"`) e o do frontend com `npm ci`. Relatório da
+etapa: `docs/relatorios/etapa-12.md`.
 
 No Windows, o ambiente local já está em `backend/.venv`; use
 `.\backend\.venv\Scripts\Activate.ps1` a partir da raiz ou execute diretamente
 `.venv\Scripts\python.exe -m pytest` dentro de `backend/`.
 
 ## Convenções a manter
+- Todo teste de regra de negócio leva `@pytest.mark.rules("RN-xx")`; depois de marcar,
+  rode `python -m tests.traceability --write` (a matriz em `docs/testing.md` é conferida).
 - Regra de camadas verificada por `tests/unit/test_architecture.py` (api não importa
   repositories; services não importam FastAPI; domain puro). Filtros/paginação em
   `schemas`/`domain/pagination.py` para respeitar isso.

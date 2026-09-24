@@ -123,6 +123,7 @@ def test_unknown_sample(lab: Lab) -> None:
         assert response.json()["error"]["code"] == "SAMPLE_NOT_FOUND"
 
 
+@pytest.mark.rules("RN-27")
 def test_samples_not_yet_reviewed_have_no_report(lab: Lab) -> None:
     """RN-27: em andamento ou cancelada, não há relatório (nem registro de emissão)."""
     received = lab.create_sample()
@@ -157,6 +158,7 @@ def test_samples_not_yet_reviewed_have_no_report(lab: Lab) -> None:
 # --- Conteúdo -------------------------------------------------------------------------
 
 
+@pytest.mark.rules("RN-18")
 def test_report_content_of_an_approved_sample(lab: Lab, approved: dict[str, Any]) -> None:
     report = _report(lab, approved["id"])
 
@@ -230,6 +232,7 @@ def test_report_of_a_rejected_sample(lab: Lab) -> None:
     assert ph["result"]["spec_status"] == "OOS"
 
 
+@pytest.mark.rules("RN-28")
 def test_reading_the_report_is_not_audited_and_fingerprint_is_stable(
     lab: Lab, approved: dict[str, Any]
 ) -> None:
@@ -244,6 +247,7 @@ def test_reading_the_report_is_not_audited_and_fingerprint_is_stable(
 # --- PDF e audit trail ----------------------------------------------------------------
 
 
+@pytest.mark.rules("RN-28")
 def test_pdf_emission_is_audited_with_the_fingerprint(lab: Lab, approved: dict[str, Any]) -> None:
     content_hash = _report(lab, approved["id"])["content_hash"]
     response = _pdf(lab, approved["id"], lab.reviewer)
@@ -330,6 +334,7 @@ def test_pdf_of_a_rejected_sample(lab: Lab) -> None:
     assert "Testes cancelados" not in text
 
 
+@pytest.mark.rules("RN-28")
 def test_every_emission_is_recorded_with_the_same_fingerprint(
     lab: Lab, approved: dict[str, Any]
 ) -> None:

@@ -96,10 +96,13 @@ demonstração (senha `Demo@2026`) em modo de desenvolvimento, ou quando
 | `npm run typecheck`  | Somente checagem de tipos                   |
 | `npm run lint`       | Lint (oxlint)                               |
 | `npm test`           | Testes (Vitest + Testing Library, jsdom)    |
+| `npm run test:coverage` | Testes com cobertura (piso de 75% das linhas) |
 
 Os testes renderizam a aplicação real (rotas, autenticação e providers) com o
 `fetch` simulado: login e retorno à página pedida, sessão expirada, menu e
 rotas por perfil, ações do workflow por status e permissão, aprovação com
 senha, prévia OOS no lançamento, justificativa obrigatória na correção,
-formatação de decimais e datas, o texto da timeline, e a prévia, emissão e
-download do relatório.
+formatação de decimais e datas, o texto da timeline, a prévia, emissão e
+download do relatório, e as telas de audit trail (verificação da cadeia),
+resultados, catálogo de testes, equipamentos (chave exibida uma vez, rotação,
+log) e administração (usuários, clientes, plano analítico).

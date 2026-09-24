@@ -16,6 +16,7 @@ TODAY = date(2026, 9, 24)
 NOW = datetime(2026, 9, 24, 12, 0, tzinfo=UTC)
 
 
+@pytest.mark.rules("RN-20")
 @pytest.mark.parametrize(
     ("due_date", "valid"),
     [(TODAY + timedelta(days=1), True), (TODAY, True), (TODAY - timedelta(days=1), False)],
@@ -24,6 +25,7 @@ def test_calibration_is_valid_until_due_date_inclusive(due_date: date, valid: bo
     assert calibration_is_valid(due_date, TODAY) is valid
 
 
+@pytest.mark.rules("RN-20")
 def test_missing_calibration_is_not_valid() -> None:
     assert calibration_is_valid(None, TODAY) is False
 
@@ -41,6 +43,7 @@ def test_online_window(last: datetime | None, online: bool) -> None:
     assert is_online(last, NOW) is online
 
 
+@pytest.mark.rules("RN-20")
 def test_only_active_and_calibrated_instruments_measure() -> None:
     ensure_can_measure("PH-01", "ACTIVE", TODAY, TODAY)
     for status in ("MAINTENANCE", "INACTIVE"):
@@ -49,6 +52,7 @@ def test_only_active_and_calibrated_instruments_measure() -> None:
         assert exc.value.code == "INSTRUMENT_NOT_ACTIVE"
 
 
+@pytest.mark.rules("RN-20")
 @pytest.mark.parametrize(
     ("due_date", "fragment"),
     [(TODAY - timedelta(days=1), "venceu em 23/09/2026"), (None, "não tem calibração")],
@@ -62,6 +66,7 @@ def test_expired_or_missing_calibration_blocks_measurement(
     assert fragment in exc.value.message
 
 
+@pytest.mark.rules("RN-21")
 @pytest.mark.parametrize("required", ["DENSITY_METER", None])
 def test_instrument_type_must_match_the_test(required: str | None) -> None:
     ensure_compatible("PH-01", "PH_METER", "PH", "PH_METER")
@@ -74,6 +79,7 @@ def test_instrument_type_must_match_the_test(required: str | None) -> None:
     }
 
 
+@pytest.mark.rules("RN-23")
 @pytest.mark.parametrize("unit", ["ph", "PH", "pH ", "mV"])
 def test_unit_must_match_exactly(unit: str) -> None:
     ensure_unit("pH", "pH")

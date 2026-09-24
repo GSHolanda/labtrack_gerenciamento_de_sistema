@@ -5,14 +5,13 @@ Os testes marcados com ``postgres`` rodam contra um PostgreSQL real quando
 ``LABTRACK_TEST_DATABASE_URL`` está definida; caso contrário são pulados.
 """
 
-import os
 from collections.abc import Iterator
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from decimal import Decimal
 
 import pytest
-from sqlalchemy import Engine, select, text
+from sqlalchemy import Engine, select
 from sqlalchemy.orm import Session
 
 import app.models  # noqa: F401
@@ -30,7 +29,7 @@ from app.models import (
     User,
 )
 
-POSTGRES_URL = os.getenv("LABTRACK_TEST_DATABASE_URL")
+from ..conftest import POSTGRES_URL, reset_postgres
 
 
 @pytest.fixture
@@ -51,16 +50,9 @@ def session(engine: Engine) -> Iterator[Session]:
 def postgres_engine() -> Iterator[Engine]:
     if not POSTGRES_URL:
         pytest.skip("LABTRACK_TEST_DATABASE_URL não definida")
-    from alembic import command
-    from alembic.config import Config
-
-    engine = build_engine(POSTGRES_URL)
     # Banco limpo a cada teste: recria o schema e aplica todas as migrações.
-    with engine.begin() as connection:
-        connection.execute(text("DROP SCHEMA public CASCADE; CREATE SCHEMA public;"))
-    config = Config("alembic.ini")
-    config.set_main_option("sqlalchemy.url", POSTGRES_URL)
-    command.upgrade(config, "head")
+    reset_postgres(POSTGRES_URL)
+    engine = build_engine(POSTGRES_URL)
     yield engine
     engine.dispose()
 

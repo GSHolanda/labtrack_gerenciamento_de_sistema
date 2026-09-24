@@ -126,6 +126,7 @@ def test_password_reset_is_audited_without_exposing_values(
     assert "NovaSenha" not in str(entry.old_value) + str(entry.new_value)
 
 
+@pytest.mark.rules("RN-25")
 def test_deactivated_user_cannot_log_in(client: TestClient, db: Session, login_as: LoginAs) -> None:
     user_id = _user_id(db, "carlos.silva")
     response = client.patch(
@@ -139,6 +140,7 @@ def test_deactivated_user_cannot_log_in(client: TestClient, db: Session, login_a
     assert login.status_code == 401
 
 
+@pytest.mark.rules("RN-25")
 @pytest.mark.parametrize("change", [{"is_active": False}, {"role": "ANALYST"}])
 def test_admin_cannot_lock_themselves_out(
     client: TestClient, db: Session, login_as: LoginAs, change: dict[str, object]
@@ -151,6 +153,7 @@ def test_admin_cannot_lock_themselves_out(
     assert response.json()["error"]["code"] == "SELF_MODIFICATION_NOT_ALLOWED"
 
 
+@pytest.mark.rules("RN-25")
 def test_users_cannot_be_deleted(client: TestClient, db: Session, login_as: LoginAs) -> None:
     response = client.delete(
         f"{USERS_URL}/{_user_id(db, 'carlos.silva')}", headers=login_as(RoleCode.ADMIN)

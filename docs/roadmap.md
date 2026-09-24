@@ -16,8 +16,8 @@ sistema funcionando, testado e versionado.
 | 9     | Frontend                    | ✅ Concluída |
 | 10    | Dashboard                   | ✅ Concluída |
 | 11    | Relatórios                  | ✅ Concluída |
-| 12    | Testes                      | ⏳ Próxima   |
-| 13    | Docker                      | Planejada    |
+| 12    | Testes                      | ✅ Concluída |
+| 13    | Docker                      | ⏳ Próxima   |
 | 14    | Documentação e apresentação | Planejada    |
 
 ---
@@ -150,11 +150,21 @@ sistema funcionando, testado e versionado.
   API (permissões, disponibilidade, conteúdo, PDF lido com pypdf, audit e cadeia
   íntegra, relatório de várias páginas) e Vitest das telas.
 
-### ETAPA 12: Testes
+### ETAPA 12: Testes ✅
 - Cada etapa já entrega os testes do que implementa. Aqui, a cobertura é
   consolidada: fluxo ponta a ponta, cenários negativos de cada regra de
   negócio (RN-01 a RN-28) e testes contra PostgreSQL real.
 - Pipeline de CI (lint + testes + build do frontend).
+- Rastreabilidade: `@pytest.mark.rules("RN-xx")` nos testes e matriz gerada em
+  [testing.md](testing.md); um teste falha se alguma regra ficar sem teste.
+- Teste ponta a ponta do cadastro do equipamento ao relatório; cenários
+  negativos que faltavam (cliente e teste inativos, teste concluído, amostra
+  finalizada imutável em todas as operações, tolerância de relógio).
+- `pytest --postgres` roda a suíte inteira no PostgreSQL com o schema das
+  migrações; numeração concorrente de amostras verificada no banco real.
+- Cobertura mínima: backend 95% com ramos (96,9% medido); frontend com piso de
+  75% das linhas (de 51% para 79%, com testes das telas que faltavam).
+- GitHub Actions: backend, backend no PostgreSQL 16, simulador e frontend.
 
 ### ETAPA 13: Docker
 - Dockerfiles *multi-stage* (backend e frontend com Nginx).

@@ -108,6 +108,7 @@ def test_specification_distinguishes_one_sided_override(lab: Lab) -> None:
     assert Decimal(ph["product_spec_max"]) == Decimal(7)
 
 
+@pytest.mark.rules("RN-04")
 def test_inactive_test_cannot_enter_a_plan(lab: Lab) -> None:
     lab.client.patch(
         f"{API}/test-definitions/{lab.tests['MOISTURE']}",

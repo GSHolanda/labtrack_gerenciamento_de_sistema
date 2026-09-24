@@ -82,6 +82,7 @@ def _audit(db: Session, action: str) -> list[AuditLog]:
 # --- Gestão -------------------------------------------------------------------
 
 
+@pytest.mark.rules("RN-19")
 def test_create_shows_key_once_and_stores_only_its_hash(lab: Lab, db: Session) -> None:
     created = _create_instrument(lab, code="ph-meter-01")
 
@@ -219,6 +220,7 @@ def test_update_audits_only_changed_fields(lab: Lab, db: Session) -> None:
     assert len(_audit(db, "INSTRUMENT_UPDATED")) == 1
 
 
+@pytest.mark.rules("RN-19")
 def test_rotation_invalidates_the_previous_key(lab: Lab, db: Session) -> None:
     instrument = _create_instrument(lab)
     rotated = lab.post(
@@ -284,6 +286,7 @@ def test_list_filters_instruments(lab: Lab) -> None:
 # --- Autenticação da integração ------------------------------------------------
 
 
+@pytest.mark.rules("RN-19")
 @pytest.mark.parametrize(
     "headers",
     [{}, {"X-Instrument-Key": "lt_inst_invalida"}, {"X-Instrument-Key": "x" * 500}],
@@ -303,6 +306,7 @@ def test_integration_requires_a_valid_key(
     assert _messages(db) == []
 
 
+@pytest.mark.rules("RN-19")
 def test_user_token_does_not_authenticate_an_instrument(lab: Lab) -> None:
     response = lab.client.get(f"{API}/instruments/worklist", headers=lab.analyst)
     assert response.status_code == 401
@@ -311,6 +315,7 @@ def test_user_token_does_not_authenticate_an_instrument(lab: Lab) -> None:
 # --- Worklist e heartbeat -------------------------------------------------------
 
 
+@pytest.mark.rules("RN-21", "RN-22")
 def test_worklist_lists_pending_compatible_tests_by_priority(lab: Lab) -> None:
     instrument = _create_instrument(lab)
     normal = _started_sample(lab, priority="NORMAL")
@@ -339,6 +344,7 @@ def test_worklist_lists_pending_compatible_tests_by_priority(lab: Lab) -> None:
     assert [item["sample_code"] for item in limited.json()["items"]] == [urgent["sample_code"]]
 
 
+@pytest.mark.rules("RN-20")
 @pytest.mark.parametrize(
     ("overrides", "code"),
     [
@@ -361,6 +367,7 @@ def test_worklist_refused_when_instrument_cannot_measure(
     assert detail["online"] is True  # a comunicação foi registrada mesmo assim
 
 
+@pytest.mark.rules("RN-20")
 def test_calibration_is_valid_until_the_due_date(lab: Lab) -> None:
     instrument = _create_instrument(lab, calibration_due_date=TODAY.isoformat())
     assert instrument["calibration_valid"] is True
@@ -389,6 +396,7 @@ def test_heartbeat_marks_instrument_online(lab: Lab) -> None:
     assert datetime.fromisoformat(detail["last_communication_at"]) >= before
 
 
+@pytest.mark.rules("RN-19")
 def test_heartbeat_body_is_optional_but_must_match_the_key(lab: Lab) -> None:
     instrument = _create_instrument(lab)
     assert (
@@ -406,6 +414,7 @@ def test_heartbeat_body_is_optional_but_must_match_the_key(lab: Lab) -> None:
 # --- Resultados aceitos ---------------------------------------------------------
 
 
+@pytest.mark.rules("RN-24")
 @pytest.mark.parametrize(("value", "expected"), [("6.42", "IN_SPEC"), ("7.01", "OOS")])
 def test_accepted_result_is_recorded_logged_and_audited(
     lab: Lab, db: Session, value: str, expected: str
@@ -462,6 +471,7 @@ def test_accepted_result_is_recorded_logged_and_audited(
     assert timeline[-1]["has_oos"] is (expected == "OOS")
 
 
+@pytest.mark.rules("RN-22")
 def test_duplicate_submission_never_overwrites_the_result(lab: Lab, db: Session) -> None:
     instrument = _create_instrument(lab)
     sample = _started_sample(lab)
@@ -477,6 +487,7 @@ def test_duplicate_submission_never_overwrites_the_result(lab: Lab, db: Session)
     assert [m.status for m in _messages(db)] == ["ACCEPTED", "REJECTED"]
 
 
+@pytest.mark.rules("RN-17", "RN-22")
 def test_correction_of_instrument_result_is_manual_and_justified(lab: Lab, db: Session) -> None:
     instrument = _create_instrument(lab)
     sample = _started_sample(lab)
@@ -599,6 +610,7 @@ REJECTIONS: list[tuple[str, Setup, int, str]] = [
 ]
 
 
+@pytest.mark.rules("RN-19", "RN-20", "RN-21", "RN-22", "RN-23", "RN-24")
 @pytest.mark.parametrize(
     ("setup", "status_code", "code"),
     [row[1:] for row in REJECTIONS],
@@ -640,6 +652,7 @@ def test_rejected_message_is_logged_and_audited_without_result(
     assert detail["online"] is True
 
 
+@pytest.mark.rules("RN-24")
 @pytest.mark.parametrize(
     "payload",
     [
@@ -694,6 +707,7 @@ def test_malformed_message_is_logged(lab: Lab, db: Session, payload: Any) -> Non
     assert _results(db) == []
 
 
+@pytest.mark.rules("RN-24")
 def test_rejection_appears_in_sample_timeline(lab: Lab) -> None:
     instrument = _create_instrument(lab)
     sample = lab.create_sample()

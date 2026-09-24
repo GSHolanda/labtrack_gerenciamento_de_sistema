@@ -174,4 +174,66 @@ describe('detalhe da amostra', () => {
     expect(within(dialog).getByText('Mínimo de 5 caracteres.')).toBeInTheDocument()
     expect(api.calls.some((call) => call.method === 'POST')).toBe(false)
   })
+
+  it('reprovação exige justificativa e mostra o erro da API sem fechar', async () => {
+    let attempts = 0
+    const api = open('REVIEWER', awaitingWithOos, {
+      [`POST /samples/${awaitingWithOos.id}/reject`]: ({ body }) => {
+        attempts += 1
+        return attempts === 1
+          ? [
+              409,
+              {
+                error: {
+                  code: 'CONCURRENT_MODIFICATION',
+                  message: 'A amostra foi alterada por outro usuário.',
+                  details: null,
+                  request_id: null,
+                },
+              },
+            ]
+          : [200, { ...awaitingWithOos, status: 'REJECTED', allowed_actions: [], ...(body as object) }]
+      },
+    })
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Reprovar' }))
+    const dialog = screen.getByRole('dialog', { name: `Reprovar ${awaitingWithOos.sample_code}` })
+    const confirm = within(dialog).getByRole('button', { name: 'Reprovar amostra' })
+    await userEvent.type(within(dialog).getByLabelText(/^Justificativa/), 'pH')
+    expect(confirm).toBeDisabled()
+
+    await userEvent.type(within(dialog).getByLabelText(/^Justificativa/), ' acima do limite')
+    await userEvent.click(confirm)
+    expect(await within(dialog).findByText('A amostra foi alterada por outro usuário.')).toBeInTheDocument()
+
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Reprovar amostra' }))
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+    const calls = api.calls.filter((call) => call.path.endsWith('/reject'))
+    expect(calls.map((call) => call.body)).toEqual([
+      { reason: 'pH acima do limite' },
+      { reason: 'pH acima do limite' },
+    ])
+  })
+
+  it('gestor cancela a amostra com justificativa', async () => {
+    const received = sampleDetail({ status: 'RECEIVED', allowed_actions: ['start_analysis', 'cancel'] })
+    const api = open('MANAGER', received, {
+      [`POST /samples/${received.id}/cancel`]: [
+        200,
+        { ...received, status: 'CANCELLED', allowed_actions: [] },
+      ],
+    })
+
+    expect(await screen.findByRole('button', { name: 'Cancelar amostra' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Iniciar análise' })).not.toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: 'Cancelar amostra' }))
+    const dialog = screen.getByRole('dialog', { name: `Cancelar ${received.sample_code}` })
+    await userEvent.type(within(dialog).getByLabelText(/^Justificativa/), 'Registro em duplicidade')
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Cancelar amostra' }))
+
+    expect(await screen.findByText(`Cancelar amostra: ${received.sample_code}`)).toBeInTheDocument()
+    expect(api.calls.find((call) => call.path.endsWith('/cancel'))?.body).toEqual({
+      reason: 'Registro em duplicidade',
+    })
+  })
 })
