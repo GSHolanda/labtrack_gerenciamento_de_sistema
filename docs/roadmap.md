@@ -13,8 +13,8 @@ sistema funcionando, testado e versionado.
 | 6     | Resultados e regras OOS     | ✅ Concluída |
 | 7     | Audit trail                 | ✅ Concluída |
 | 8     | Instrument Simulator        | ✅ Concluída |
-| 9     | Frontend                    | ⏳ Próxima   |
-| 10    | Dashboard                   | Planejada    |
+| 9     | Frontend                    | ✅ Concluída |
+| 10    | Dashboard                   | ⏳ Próxima   |
 | 11    | Relatórios                  | Planejada    |
 | 12    | Testes                      | Planejada    |
 | 13    | Docker                      | Planejada    |
@@ -96,10 +96,25 @@ sistema funcionando, testado e versionado.
 - Simulador em `instrument-simulator/` (`run`, `worklist`, `send`,
   `heartbeat`), com testes unitários e ponta a ponta contra a API.
 
-### ETAPA 9: Frontend
+### ETAPA 9: Frontend ✅
 - Layout corporativo com menu lateral (Dashboard, Samples, Tests, Results, Instruments, Audit Trail, Reports, Administration).
 - Login, rotas protegidas por perfil, tabelas com filtros, badges de status, alertas de OOS.
 - Detalhe da amostra com ações de workflow e **Sample Timeline** visual.
+- Menu e rotas protegidos pela mesma configuração de permissões; sessão em
+  `sessionStorage` validada em `/auth/me`, expiração tratada com aviso.
+- Amostras: filtros na URL, progresso dos testes, registro com prévia do plano,
+  lançamento com prévia OOS, correção com justificativa, histórico de versões,
+  atribuição/cancelamento de testes, aprovação com senha e timeline agrupada por dia.
+- Resultados (filtro OOS e versões corrigidas), catálogo de testes, equipamentos
+  (chave exibida uma vez, rotação, log de mensagens), audit trail com verificação
+  da cadeia, administração (usuários, clientes, produtos e plano analítico),
+  dashboard básico e página de relatórios (PDF na ETAPA 11).
+- Backend: progresso e `has_oos` na lista de amostras, `decimal_places` nos
+  testes e resultados, limites próprios do produto no plano, ordenação por
+  prioridade e status com significado de negócio, `created_at`/`updated_at`
+  pelo relógio da aplicação.
+- 49 testes Vitest com a aplicação real e a API simulada; validação visual com
+  Chromium sobre os dados de demonstração, com todos os perfis.
 
 ### ETAPA 10: Dashboard
 - KPIs: amostras abertas, em análise, aguardando revisão, aprovadas, reprovadas, OOS, tempo médio de processamento.

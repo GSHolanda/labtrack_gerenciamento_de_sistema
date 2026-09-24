@@ -343,6 +343,50 @@ def test_search_filters(lab: Lab) -> None:
     assert search(received_from=tomorrow) == []
 
 
+def test_search_reports_progress_and_current_oos(lab: Lab) -> None:
+    sample = lab.create_sample()
+    _action(lab, sample["id"], "start-analysis", lab.analyst)
+    assert lab.enter(sample, "PH", "8.0").status_code == 201  # OOS (produto: 5.5 a 7.0)
+
+    def summary() -> dict[str, object]:
+        response = lab.client.get(f"{API}/samples", headers=lab.analyst)
+        item = response.json()["items"][0]
+        return {key: item[key] for key in ("tests_total", "tests_completed", "has_oos")}
+
+    assert summary() == {"tests_total": 2, "tests_completed": 1, "has_oos": True}
+    corrected = lab.enter(sample, "PH", "6.8", reason="Erro de transcrição")
+    assert corrected.status_code == 201
+    assert summary() == {"tests_total": 2, "tests_completed": 1, "has_oos": False}
+    cancelled = lab.post(
+        f"/sample-tests/{lab.test_id(sample, 'DENSITY')}/cancel",
+        lab.analyst,
+        {"reason": "Não solicitado pelo cliente"},
+    )
+    assert cancelled.status_code == 200, cancelled.text
+    assert summary() == {"tests_total": 1, "tests_completed": 1, "has_oos": False}
+    detail = lab.get_sample(sample["id"])
+    assert (detail["tests_total"], detail["tests_completed"]) == (1, 1)
+    assert {t["test_code"]: t["decimal_places"] for t in detail["tests"]} == {
+        "PH": 2,
+        "DENSITY": 2,
+    }
+
+
+def test_priority_and_status_sort_follow_business_order(lab: Lab) -> None:
+    for priority in ("HIGH", "LOW", "URGENT", "NORMAL"):
+        sample = lab.create_sample(priority=priority)
+        if priority in ("HIGH", "URGENT"):
+            _action(lab, sample["id"], "start-analysis", lab.analyst)
+
+    def order(sort: str, field: str) -> list[str]:
+        response = lab.client.get(f"{API}/samples", params={"sort": sort}, headers=lab.analyst)
+        return [item[field] for item in response.json()["items"]]
+
+    assert order("-priority", "priority") == ["URGENT", "HIGH", "NORMAL", "LOW"]
+    assert order("priority", "priority") == ["LOW", "NORMAL", "HIGH", "URGENT"]
+    assert order("status", "status") == ["RECEIVED", "RECEIVED", "IN_ANALYSIS", "IN_ANALYSIS"]
+
+
 def test_search_rejects_unknown_sort_field(lab: Lab) -> None:
     response = lab.client.get(f"{API}/samples", params={"sort": "password"}, headers=lab.analyst)
 

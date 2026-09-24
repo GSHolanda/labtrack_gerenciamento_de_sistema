@@ -90,6 +90,22 @@ def test_product_specification_shows_effective_limits(lab: Lab) -> None:
     assert Decimal(by_code["PH"]["spec_min"]) == Decimal("5.5")  # limite do produto
     assert by_code["PH"]["overrides_default"] is True
     assert Decimal(by_code["DENSITY"]["spec_max"]) == Decimal("1.05")  # padrão do teste
+    assert by_code["DENSITY"]["overrides_default"] is False
+    assert by_code["DENSITY"]["product_spec_min"] is None
+
+
+def test_specification_distinguishes_one_sided_override(lab: Lab) -> None:
+    response = lab.client.put(
+        f"{API}/products/{lab.product_id}/specifications",
+        json=[{"test_definition_id": lab.tests["PH"], "spec_max": 7.0}],
+        headers=lab.admin,
+    )
+    assert response.status_code == 200, response.text
+    [ph] = response.json()
+
+    assert (Decimal(ph["spec_min"]), Decimal(ph["spec_max"])) == (Decimal("6.5"), Decimal(7))
+    assert ph["product_spec_min"] is None  # o mínimo continua vindo do padrão do teste
+    assert Decimal(ph["product_spec_max"]) == Decimal(7)
 
 
 def test_inactive_test_cannot_enter_a_plan(lab: Lab) -> None:

@@ -17,6 +17,8 @@ from sqlalchemy import (
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
+from app.core.clock import utcnow
+
 # Nomes previsíveis para constraints: migrações do Alembic ficam estáveis e as
 # mensagens de erro do banco apontam exatamente qual regra foi violada.
 NAMING_CONVENTION = {
@@ -47,12 +49,17 @@ class IdMixin:
     id: Mapped[int] = mapped_column(BigIntPK, primary_key=True, autoincrement=True)
 
 
+# O relógio da aplicação (e não o do banco) data os registros: as mesmas marcas de
+# tempo dos eventos de negócio, inclusive nos dados de demonstração. O server_default
+# continua valendo para inserções feitas fora da aplicação.
 class CreatedAtMixin:
-    created_at: Mapped[datetime] = mapped_column(server_default=func.now())
+    created_at: Mapped[datetime] = mapped_column(default=utcnow, server_default=func.now())
 
 
 class TimestampMixin(CreatedAtMixin):
-    updated_at: Mapped[datetime] = mapped_column(server_default=func.now(), onupdate=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        default=utcnow, server_default=func.now(), onupdate=utcnow
+    )
 
 
 def enum_check(column: str, enum_cls: type[StrEnum], name: str | None = None) -> CheckConstraint:

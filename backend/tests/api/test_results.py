@@ -236,6 +236,7 @@ def test_search_oos_defaults_to_current_results_and_can_include_history(lab: Lab
     assert oos["items"][0]["test_code"] == "PH"
     assert oos["items"][0]["sample_code"] == sample["sample_code"]
     assert Decimal(oos["items"][0]["spec_max"]) == Decimal("7.0")
+    assert oos["items"][0]["decimal_places"] == 2
     assert lab.enter(sample, "PH", "6.8", "Erro de transcrição").status_code == 201
     assert search(spec_status="OOS")["total"] == 0
     historical = search(spec_status="OOS", current_only=False)

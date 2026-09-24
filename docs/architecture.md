@@ -115,6 +115,17 @@ fica em `src/api/`.
 Em desenvolvimento, o Vite encaminha `/api` para o backend; em produção, o
 Nginx faz o mesmo papel. O navegador fala com uma única origem.
 
+Implementado na ETAPA 9 (detalhes em [`frontend/README.md`](../frontend/README.md)):
+
+- **Sessão**: JWT no `sessionStorage`, validado em `GET /auth/me` ao abrir o app;
+  `401` numa requisição autenticada ou a expiração do token encerram a sessão.
+- **Permissões**: `layouts/navigation.ts` define, para cada área, as permissões
+  que a acessam. O mesmo item monta o menu e protege a rota; botões de ação
+  aparecem conforme as permissões de `/auth/me` e os `allowed_actions` da amostra.
+- **Dados**: TanStack Query; cada operação atualiza o detalhe com a resposta da
+  API e invalida listas, timeline e dashboard. Filtros e paginação ficam na URL.
+- **Valores analíticos** tratados como texto decimal na interface inteira.
+
 ## 4. Instrument Simulator
 
 Processo Python independente que só conhece a **API REST**. Ele se autentica

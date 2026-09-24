@@ -65,6 +65,7 @@ class ResultListItem(ResultRead):
     sample_code: str
     test_code: str
     test_name: str
+    decimal_places: int
     spec_min: Decimal | None
     spec_max: Decimal | None
 
@@ -81,6 +82,7 @@ def to_result_item(result: Any) -> ResultListItem:
         sample_code=sample_test.sample.sample_code,
         test_code=sample_test.test_definition.code,
         test_name=sample_test.test_definition.name,
+        decimal_places=sample_test.test_definition.decimal_places,
         spec_min=sample_test.spec_min,
         spec_max=sample_test.spec_max,
     )

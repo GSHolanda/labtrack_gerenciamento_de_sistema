@@ -92,6 +92,16 @@ Filtros de `GET /samples`: `code`, `product_id`, `client_id`, `lot_number`,
 `status` (múltiplo), `priority`, `responsible_id`, `received_from`,
 `received_to`, `q` (busca livre), `page`, `size`, `sort` (ex.: `-received_at`).
 
+`sort` aceita `sample_code`, `received_at`, `lot_number`, `priority` e `status`.
+Prioridade ordena por nível (`LOW` → `URGENT`; `-priority` traz as urgentes
+primeiro) e status segue a sequência do workflow (`RECEIVED` → `CANCELLED`),
+não a ordem alfabética.
+
+Cada item da lista traz também `tests_total` e `tests_completed` (testes ativos,
+sem os cancelados) e `has_oos` (algum teste ativo com resultado vigente fora da
+especificação), usados pela interface para o progresso e o alerta de OOS. No
+detalhe, cada teste traz `decimal_places`, as casas de exibição do tipo de teste.
+
 As transições de status usam **rotas de ação** (`/approve`, `/reject`...) em vez
 de um `PATCH status`. Cada ação tem permissão, validações e payload próprios, e
 o Swagger documenta cada uma separadamente.
@@ -103,6 +113,12 @@ o Swagger documenta cada uma separadamente.
 | GET    | `/sample-tests/{id}/results` | `SAMPLE_READ`         | Todas as versões do resultado                                      |
 | POST   | `/sample-tests/{id}/results` | `RESULT_ENTER`        | Registra resultado; se já existir, cria nova versão (exige `change_reason`) |
 | GET    | `/results`                   | `SAMPLE_READ`         | Pesquisa de resultados (`spec_status=OOS`, fonte, teste, período)  |
+
+Os itens de `GET /results` trazem os limites do teste atribuído e `decimal_places`.
+`GET /products/{id}/specifications` devolve o limite efetivo (`spec_min`,
+`spec_max`) e, separadamente, os limites próprios do produto
+(`product_spec_min`, `product_spec_max`; vazio quando vale o padrão do teste),
+para que um editor do plano não transforme o padrão em limite do produto.
 
 ### Instrumentos: gestão
 | Método | Rota                          | Permissão           | Descrição                                          |

@@ -23,7 +23,8 @@ Leia primeiro: `docs/architecture.md`, `docs/database.md`, `docs/api.md`,
 | 6 Resultados e OOS + revisão | ✅ concluída e validada |
 | 7 Audit trail e Sample Timeline (API) | ✅ concluída e validada |
 | 8 Instrumentos, integração REST, simulador e demonstração | ✅ concluída e validada |
-| 9 a 14 | pendentes (ver `docs/roadmap.md`) |
+| 9 Frontend (todas as áreas do menu, timeline visual) | ✅ concluída e validada |
+| 10 a 14 | pendentes (ver `docs/roadmap.md`) |
 
 ## ETAPA 6: entrega concluída
 - `app/domain/specification.py::evaluate()` (OOS, limites inclusivos, Decimal) + testes unitários.
@@ -99,16 +100,48 @@ Leia primeiro: `docs/architecture.md`, `docs/database.md`, `docs/api.md`,
   e chave, constraint do hash, concorrência no PostgreSQL; simulador com 37 unitários
   e 4 ponta a ponta contra a API (pulados se o backend não estiver instalado).
 
-### Próximos passos: ETAPA 9 (frontend)
-1. Layout com menu lateral (Dashboard, Samples, Tests, Results, Instruments, Audit
-   Trail, Reports, Administration), login e rotas protegidas por permissão
-   (`GET /auth/me` já devolve as permissões).
-2. Telas de amostras (lista com filtros, detalhe com ações de `allowed_actions`,
-   lançamento/correção de resultados, alertas OOS e `had_oos`) e Sample Timeline visual
-   (`GET /samples/{id}/timeline`, flags `is_correction` e `has_oos`).
-3. Tela de equipamentos: lista com `online`/`calibration_valid`, cadastro e rotação
-   mostrando a chave uma única vez, log de mensagens com filtro de status.
-4. Usar os dados de `seed-demo` para desenvolver e demonstrar as telas.
+## ETAPA 9: entrega concluída
+- Frontend React 19 + TypeScript + Vite, React Router 8, TanStack Query 5,
+  lucide-react; Vitest 5 + Testing Library (jsdom). CSS próprio com tokens
+  (`src/styles/`), sem biblioteca de componentes. Ver `frontend/README.md`.
+- `layouts/navigation.ts` é a fonte única de menu e proteção de rotas
+  (`permissionsFor`); `features/auth/guards.tsx` (`RequireAuth`, `RequirePermission`).
+- Sessão: token em `sessionStorage` (`features/auth/session.ts`, lido pelo cliente
+  HTTP via `configureApi`), validado em `/auth/me`; 401 ou expiração → login com
+  aviso e retorno à tela pedida; saída voluntária (`endedBy='manual'`) não guarda
+  a origem.
+- `api/client.ts`: `ApiError` (código, detalhes, `fieldErrors` de VALIDATION_ERROR,
+  request id). `api/queryKeys.ts` centraliza as chaves; `features/samples/useSampleSync.ts`
+  atualiza o detalhe e invalida listas, timeline e dashboard após cada operação.
+- `lib/format.ts`: decimais tratados como texto (nunca arredonda dígitos
+  registrados; vírgula na exibição e aceita na entrada), comparação com BigInt
+  para a prévia OOS, datas UTC → fuso do navegador. `lib/labels.ts`: rótulos pt-BR.
+- Telas: dashboard básico (contagens por status, OOS vigentes, fila do perfil),
+  amostras (lista com filtros na URL, registro com prévia do plano, detalhe com
+  ações, resultados, histórico de versões, atribuição/cancelamento de testes,
+  aprovação com senha, timeline agrupada por dia), resultados, testes,
+  equipamentos (chave exibida uma vez, rotação, log com payload), audit trail
+  (verificação da cadeia, hashes), administração (usuários, clientes, produtos,
+  editor do plano analítico) e relatórios (placeholder até a ETAPA 11).
+- Backend ajustado para a interface: `tests_total`, `tests_completed`, `has_oos` na
+  lista de amostras; `decimal_places` em `SampleTestRead` e `ResultListItem`;
+  `product_spec_min/max` no plano; ordenação `priority` por nível e `status` pela
+  sequência do workflow; `created_at`/`updated_at` com o relógio da aplicação
+  (`database/base.py`), o que deixa a demonstração coerente também nessas colunas.
+- Validação: roteiro no Chromium (Playwright) com todos os perfis sobre os dados de
+  demonstração no PostgreSQL: registro → análise → OOS → correção → envio →
+  senha errada recusada → aprovação; cancelamento pelo gestor; chave de
+  equipamento; plano analítico. Sem erros de console além do 422 esperado da senha errada.
+
+### Próximos passos: ETAPA 10 (dashboard)
+1. Endpoints `GET /dashboard/summary` (abertas, em análise, aguardando revisão,
+   aprovadas, reprovadas, OOS, tempo médio de processamento) e
+   `GET /dashboard/charts` (por status, processadas por mês, % de aprovação, OOS por
+   teste), com `DASHBOARD_VIEW`, consultas agregadas e testes.
+2. Substituir o dashboard básico (`features/dashboard/DashboardPage.tsx`, hoje com
+   uma consulta por status) pelos KPIs do endpoint e gráficos com Recharts.
+3. Os dados de demonstração já cobrem cerca de 50 dias com datas coerentes
+   (`received_at`, `completed_at`, `created_at`), suficientes para as séries mensais.
 
 ## Como rodar
 ```bash
@@ -122,16 +155,14 @@ LABTRACK_TEST_DATABASE_URL=postgresql+psycopg://labtrack:labtrack@localhost:5432
 ruff check . && ruff format --check .
 cd ../instrument-simulator && pip install -e ".[dev]" && pytest
 python -m simulator run --once   # com a API rodando e config.json gerado
-cd ../frontend && npm install && npm run build
+cd ../frontend && npm install && npm run dev   # http://localhost:5173, proxy /api → :8000
+npm test && npm run lint && npm run build
 ```
-Validação da ETAPA 8, com Python 3.11: backend **391 testes passando, nenhum
-pulado**, incluindo os 5 de PostgreSQL 16 real (trigger append-only, migrações
-0001–0003 iguais aos modelos, concorrência de resultados de instrumento).
-Simulador: **41 testes passando** (inclui ponta a ponta contra a API). Ruff check
-e format limpos nos dois pacotes. A demonstração também foi gerada no PostgreSQL
-(cadeia de 184 registros válida, nenhum evento fora de ordem) e o simulador foi
-executado como processo separado contra o uvicorn. Os testes de API usam SQLite
-em memória; ele não preserva o fuso das datas, por isso as comparações
+Validação da ETAPA 9: backend **394 testes passando, nenhum pulado** (inclui os
+5 de PostgreSQL 16 real), simulador **41**, frontend **49** (Vitest), Ruff,
+oxlint, `tsc` e `vite build` limpos. A interface foi percorrida no Chromium com
+todos os perfis sobre a demonstração gerada no PostgreSQL. Os testes de API usam
+SQLite em memória; ele não preserva o fuso das datas, por isso as comparações
 normalizam UTC.
 
 No Windows, o ambiente local já está em `backend/.venv`; use

@@ -87,6 +87,11 @@ class SampleSummary(BaseModel):
     responsible: UserReference | None
     version: int
     created_at: datetime
+    tests_total: int = Field(description="Testes ativos (não cancelados)")
+    tests_completed: int = Field(description="Testes ativos com resultado")
+    has_oos: bool = Field(
+        description="Algum teste ativo tem resultado vigente fora da especificação"
+    )
 
 
 class SampleTestRead(BaseModel):
@@ -96,6 +101,7 @@ class SampleTestRead(BaseModel):
     test_name: str
     method: str
     unit: str
+    decimal_places: int = Field(description="Casas decimais de exibição do teste")
     spec_min: Decimal | None
     spec_max: Decimal | None
     status: SampleTestStatus
@@ -138,6 +144,7 @@ def _user_ref(user: Any) -> UserReference | None:
 
 
 def _summary_fields(sample: Any) -> dict[str, Any]:
+    active = [test for test in sample.tests if test.status != SampleTestStatus.CANCELLED]
     return {
         "id": sample.id,
         "sample_code": sample.sample_code,
@@ -153,7 +160,19 @@ def _summary_fields(sample: Any) -> dict[str, Any]:
         "responsible": _user_ref(sample.responsible),
         "version": sample.version,
         "created_at": sample.created_at,
+        "tests_total": len(active),
+        "tests_completed": sum(test.status == SampleTestStatus.COMPLETED for test in active),
+        "has_oos": bool(_oos_codes(active)),
     }
+
+
+def _oos_codes(tests: list[Any]) -> list[str]:
+    return [
+        test.test_definition.code
+        for test in tests
+        if test.status != SampleTestStatus.CANCELLED
+        and any(r.is_current and r.spec_status == SpecStatus.OOS for r in test.results)
+    ]
 
 
 def to_summary(sample: Any) -> SampleSummary:
@@ -170,6 +189,7 @@ def to_sample_test(test: Any) -> SampleTestRead:
         test_name=definition.name,
         method=definition.method,
         unit=test.unit,
+        decimal_places=definition.decimal_places,
         spec_min=test.spec_min,
         spec_max=test.spec_max,
         status=test.status,
@@ -191,12 +211,7 @@ def to_detail(sample: Any) -> SampleDetail:
         review_comment=sample.review_comment,
         completed_at=sample.completed_at,
         tests=[to_sample_test(test) for test in sample.tests],
-        oos_tests=[
-            test.test_definition.code
-            for test in sample.tests
-            if test.status != SampleTestStatus.CANCELLED
-            and any(r.is_current and r.spec_status == SpecStatus.OOS for r in test.results)
-        ],
+        oos_tests=_oos_codes(sample.tests),
         allowed_actions=allowed_actions(sample.status),
     )
 

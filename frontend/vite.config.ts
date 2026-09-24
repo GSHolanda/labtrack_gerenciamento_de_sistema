@@ -1,5 +1,5 @@
 import react from '@vitejs/plugin-react'
-import { defineConfig } from 'vite'
+import { defineConfig } from 'vitest/config'
 
 // Em desenvolvimento, /api é encaminhado ao backend: o navegador conversa com
 // uma única origem e não depende de CORS. Em produção, o Nginx faz o mesmo papel.
@@ -12,5 +12,10 @@ export default defineConfig({
     proxy: {
       '/api': { target: apiTarget, changeOrigin: true },
     },
+  },
+  test: {
+    environment: 'jsdom',
+    setupFiles: ['./src/test/setup.ts'],
+    css: false,
   },
 })

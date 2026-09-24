@@ -6,7 +6,7 @@ total, regras de negócio de um ambiente regulado, integração com instrumentos
 e audit trail imutável.
 
 > 🚧 **Em desenvolvimento.** O projeto é construído em 14 etapas incrementais.
-> Veja o [plano de implementação](docs/roadmap.md). Etapa atual: **8 de 14 concluídas**.
+> Veja o [plano de implementação](docs/roadmap.md). Etapa atual: **9 de 14 concluídas**.
 
 ---
 
@@ -104,8 +104,14 @@ REST (`worklist`, `results`, `heartbeat`) com as regras RN-19 a RN-24, o
 simulador de instrumentos em `instrument-simulator/` e os dados de
 demonstração, gerados pelos próprios serviços com histórico coerente.
 
-A próxima entrega é o frontend (ETAPA 9). Dashboard e PDF seguem o roadmap; o
-frontend atual é a estrutura inicial.
+A ETAPA 9 entrega o frontend: login, menu e rotas por perfil, amostras (lista,
+registro, detalhe com as ações do workflow, resultados, correções e Sample
+Timeline visual), resultados com filtro OOS, catálogo de testes, equipamentos
+com chave exibida uma única vez, audit trail com verificação de integridade,
+administração e um dashboard básico. Veja o [README do frontend](frontend/README.md).
+
+A próxima entrega é o dashboard completo (ETAPA 10), seguido do relatório em PDF
+(ETAPA 11).
 
 **Backend**
 
@@ -146,8 +152,12 @@ Veja as opções no [README do simulador](instrument-simulator/README.md).
 ```bash
 cd frontend
 npm install
-npm run dev                        # http://localhost:5173
+npm run dev                        # http://localhost:5173 (usa a API em :8000)
+npm test                           # testes (Vitest)
 ```
+
+Com os dados de demonstração, entre como `carlos.silva` (analista),
+`ana.souza` (revisora), `marcos.lima` (gestor) ou `admin`, senha `Demo@2026`.
 
 A execução completa com `docker compose up` chega na ETAPA 13.
 

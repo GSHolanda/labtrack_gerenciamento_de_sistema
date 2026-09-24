@@ -98,7 +98,6 @@ class SampleService:
                 responsible_id=data.responsible_id,
                 notes=data.notes,
                 created_by_id=actor.id,
-                created_at=utcnow(),
             )
         )
         self._add_history(sample, None, SampleStatus.RECEIVED, actor, None)

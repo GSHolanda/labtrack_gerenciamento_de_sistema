@@ -19,14 +19,23 @@ from app.schemas.samples import SampleFilter
 
 _SAMPLE_CODE_LOCK_KEY = 7_415_002
 
+# Ordenação com significado de negócio, e não alfabética:
+# prioridade crescente (LOW → URGENT) e status na sequência do workflow.
+_PRIORITY_LEVEL = case(
+    {"LOW": 0, "NORMAL": 1, "HIGH": 2, "URGENT": 3}, value=Sample.priority, else_=-1
+)
+_STATUS_ORDER = case(
+    {status: index for index, status in enumerate(SampleStatus)}, value=Sample.status, else_=-1
+)
+
 
 class SampleRepository(BaseRepository[Sample]):
     model = Sample
     sortable = {  # noqa: RUF012
         "sample_code": Sample.sample_code,
         "received_at": Sample.received_at,
-        "priority": Sample.priority,
-        "status": Sample.status,
+        "priority": _PRIORITY_LEVEL,
+        "status": _STATUS_ORDER,
         "lot_number": Sample.lot_number,
     }
     default_sort = (Sample.received_at.desc(),)
@@ -82,7 +91,11 @@ class SampleRepository(BaseRepository[Sample]):
             select(Sample)
             .join(Sample.product)
             .join(Sample.client)
-            .options(selectinload(Sample.responsible))
+            .options(
+                selectinload(Sample.responsible),
+                # Progresso e alerta de OOS na listagem: testes e resultados em lote.
+                selectinload(Sample.tests).selectinload(SampleTest.results),
+            )
         )
         if filters.code:
             statement = statement.where(Sample.sample_code.ilike(f"%{filters.code}%"))
