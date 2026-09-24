@@ -6,7 +6,7 @@ total, regras de negócio de um ambiente regulado, integração com instrumentos
 e audit trail imutável.
 
 > 🚧 **Em desenvolvimento.** O projeto é construído em 14 etapas incrementais.
-> Veja o [plano de implementação](docs/roadmap.md). Etapa atual: **5 de 14 concluídas**.
+> Veja o [plano de implementação](docs/roadmap.md). Etapa atual: **6 de 14 concluídas**.
 
 ---
 
@@ -85,6 +85,17 @@ labtrack/
 | [Plano de implementação](docs/roadmap.md)        | As 14 etapas e o status de cada uma                             |
 
 ## Como executar (estado atual)
+
+A API já oferece autenticação, cadastros, amostras, testes atribuídos,
+resultados manuais e revisão completa. A ETAPA 6 inclui avaliação OOS com
+`Decimal`, correções versionadas com justificativa, histórico OOS preservado
+e aprovação com senha e segregação de funções. Resultados ficam bloqueados
+após o envio para revisão; o revisor pode devolver a amostra para análise
+com justificativa.
+
+As consultas do audit trail e a Sample Timeline são a próxima entrega
+(ETAPA 7). Integração com instrumentos, telas operacionais, dashboard e PDF
+seguem o roadmap; o frontend atual é a estrutura inicial.
 
 **Backend**
 

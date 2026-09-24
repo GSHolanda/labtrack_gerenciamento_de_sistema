@@ -10,8 +10,8 @@ sistema funcionando, testado e versionado.
 | 3     | Backend e API (fundação)    | ✅ Concluída |
 | 4     | Autenticação e usuários     | ✅ Concluída |
 | 5     | Samples e testes            | ✅ Concluída |
-| 6     | Resultados e regras OOS     | ⏳ Próxima   |
-| 7     | Audit trail                 | Planejada    |
+| 6     | Resultados e regras OOS     | ✅ Concluída |
+| 7     | Audit trail                 | ⏳ Próxima   |
 | 8     | Instrument Simulator        | Planejada    |
 | 9     | Frontend                    | Planejada    |
 | 10    | Dashboard                   | Planejada    |
@@ -57,10 +57,15 @@ sistema funcionando, testado e versionado.
 - Pesquisa com filtros e paginação.
 - Máquina de estados + ações `start-analysis`, `submit-for-review`, `cancel`.
 
-### ETAPA 6: Resultados e regras OOS
+### ETAPA 6: Resultados e regras OOS ✅
 - Avaliação de especificação (domínio, com `Decimal`).
 - Registro manual de resultados e versionamento com justificativa.
 - Revisão: `approve` (senha + quatro olhos + sem OOS), `reject`, `return-to-analysis`.
+- Pesquisa de resultados vigentes e históricos, incluindo filtro OOS.
+- Histórico OOS preservado (`had_oos`), mesmo após correção e aprovação.
+- Testes de API para limites inclusivos, precisão decimal, permissões,
+  versionamento, auditoria, bloqueios por status e fluxo completo de revisão.
+- Resposta de aprovação/reprovação já inclui o revisor, sem exigir nova consulta.
 
 ### ETAPA 7: Audit trail
 - Hash encadeado (SHA-256) e verificação de integridade (`/audit-logs/verify`).

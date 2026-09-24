@@ -19,10 +19,10 @@ Leia primeiro: `docs/architecture.md`, `docs/database.md`, `docs/api.md`,
 | 3 Fundação da API (erros padronizados, request id, sessão, paginação, /health/ready) | ✅ commitada |
 | 4 Auth/usuários (bcrypt, JWT, RBAC, audit com hash encadeado, migração 0002 de perfis, `python -m app.cli create-admin`) | ✅ commitada |
 | 5 Cadastros, amostras, workflow (start/submit/cancel) | ✅ commitada |
-| 6 Resultados e OOS + revisão | 🟡 **código escrito, faltam os testes** (ver abaixo) |
+| 6 Resultados e OOS + revisão | ✅ concluída e validada |
 | 7 a 14 | pendentes (ver `docs/roadmap.md`) |
 
-## ETAPA 6: o que já existe (commit "WIP ETAPA 6")
+## ETAPA 6: entrega concluída
 - `app/domain/specification.py::evaluate()` (OOS, limites inclusivos, Decimal) + testes unitários.
 - `app/services/result_service.py`: `enter_manual()` e `record()` (reutilizável pela
   integração de instrumentos na ETAPA 8; não faz commit). Versionamento: correção exige
@@ -35,20 +35,24 @@ Leia primeiro: `docs/architecture.md`, `docs/database.md`, `docs/api.md`,
 - Rotas: `POST/GET /sample-tests/{id}/results`, `GET /results`,
   `POST /samples/{id}/approve|reject|return-to-analysis`.
 - `UserReference` foi movido para `app/schemas/common.py`.
+- Helpers `Lab.enter/analyze/submit` e `IN_SPEC_VALUES`; testes de amostras usam
+  lançamentos reais pela API, sem completar testes diretamente no banco.
+- `tests/api/test_results.py`: 46 cenários de API para resultados, OOS,
+  versionamento, auditoria, permissões e revisão. Inclui operações recusadas
+  sem efeitos colaterais, estados finais e reenvio após devolução.
+- Corrigida a resposta de aprovação/reprovação: `reviewed_by` agora é atualizado
+  pelo relacionamento ORM e aparece na própria resposta da ação.
 
-### Próximos passos exatos da ETAPA 6
-1. Em `backend/tests/api/conftest.py`, adicionar ao `Lab` helpers `enter()`, `analyze()`,
-   `submit()` e `IN_SPEC_VALUES = {"PH": "6.8", "DENSITY": "1.02"}`
-   (produto PRD-001: pH 5.5–7.0 pelo plano do produto; densidade 1.00–1.05).
-2. Em `tests/api/test_samples.py`, trocar `_complete_all_tests` (update direto no banco)
-   por lançamentos reais via API.
-3. Criar `tests/api/test_results.py` cobrindo: IN_SPEC/OOS, resultado fora de IN_ANALYSIS
-   (409 SAMPLE_NOT_IN_ANALYSIS), correção sem/com justificativa (versões, `had_oos`),
-   >4 casas decimais (422), revisor não lança (403), bloqueio após submit, pesquisa
-   `?spec_status=OOS`, aprovação feliz (reviewed_by/at, completed_at), aprovação com OOS,
-   senha errada, quatro olhos (mudar o perfil do analista para REVIEWER após lançar),
-   reprovação com justificativa, devolução para análise e reenvio.
-4. Rodar testes/lint, atualizar `docs/roadmap.md` e `README.md` (etapa 6 concluída), commitar.
+### Próximos passos: ETAPA 7
+1. Implementar consulta paginada de auditoria com filtros por usuário, ação,
+   entidade, amostra e período (`GET /api/v1/audit-logs`, permissão `AUDIT_READ`).
+2. Expor verificação da cadeia de hashes em `GET /api/v1/audit-logs/verify`,
+   reaproveitando as funções de domínio e o serviço de auditoria existentes.
+3. Implementar `GET /api/v1/samples/{id}/timeline` com `SAMPLE_READ`, derivado
+   do audit trail da amostra, incluindo autor, horário, correções e histórico OOS.
+4. Testar filtros, paginação, permissões, integridade e timeline; manter a
+   auditoria sem endpoints de alteração ou exclusão. Atualizar documentação
+   e fazer um commit da etapa.
 
 ## Como rodar
 ```bash
@@ -61,7 +65,15 @@ LABTRACK_TEST_DATABASE_URL=postgresql+psycopg://labtrack:labtrack@localhost:5432
 ruff check . && ruff format --check .
 cd ../frontend && npm install && npm run build
 ```
-Estado ao sair: 185 testes passando, lint limpo.
+Validação da ETAPA 6: **231 testes passando, 4 pulados**, Ruff check e format
+limpos, com Python 3.11. Os quatro testes de PostgreSQL (trigger append-only e
+consistência das migrações) não foram executados: `LABTRACK_TEST_DATABASE_URL`
+não está definida. Os testes de API usam SQLite em memória; ele não preserva
+o fuso das datas, por isso as comparações de resultados normalizam UTC.
+
+No Windows, o ambiente local já está em `backend/.venv`; use
+`.\backend\.venv\Scripts\Activate.ps1` a partir da raiz ou execute diretamente
+`.venv\Scripts\python.exe -m pytest` dentro de `backend/`.
 
 ## Convenções a manter
 - Regra de camadas verificada por `tests/unit/test_architecture.py` (api não importa

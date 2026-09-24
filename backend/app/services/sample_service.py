@@ -292,7 +292,7 @@ class SampleService:
         if is_final(target):
             sample.completed_at = now
         if action in (SampleAction.APPROVE, SampleAction.REJECT):
-            sample.reviewed_by_id = actor.id
+            sample.reviewed_by = actor
             sample.reviewed_at = now
             sample.review_comment = review_comment
         self.session.flush()
