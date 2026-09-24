@@ -14,7 +14,7 @@ Actions executa tudo a cada push.
 
 | Item | Resultado |
 | ---- | --------- |
-| Rastreabilidade regra → teste | `@pytest.mark.rules("RN-xx")` em 90 testes; matriz gerada em [`docs/testing.md`](../testing.md); `test_traceability.py` falha se uma regra ficar sem teste ou a matriz desatualizar |
+| Rastreabilidade regra → teste | `@pytest.mark.rules("RN-xx")` em 93 testes; matriz gerada em [`docs/testing.md`](../testing.md); `test_traceability.py` falha se uma regra ficar sem teste ou a matriz desatualizar |
 | Fluxo ponta a ponta | `tests/api/test_end_to_end.py`: equipamento → registro → worklist → OOS do instrumento → aprovação barrada → devolução → correção → assinatura → relatório → timeline completa → cadeia íntegra → dashboard |
 | Cenários negativos novos | cliente inativo (RN-02), tolerância de relógio (RN-03), teste inativo ou inexistente (RN-05), teste concluído (RN-07), amostra finalizada imutável em 7 operações × 3 status finais (RN-14), numeração concorrente no PostgreSQL (RN-01) |
 | Suíte no PostgreSQL | `pytest --postgres`: schema recriado pelas migrações a cada teste |
@@ -56,7 +56,10 @@ faltava era a prova explícita e rastreável.
 ## Validação
 
 Todos os jobs do CI foram ensaiados localmente em ambiente limpo: virtualenv
-novo para backend e simulador e `npm ci` para o frontend.
+novo para backend e simulador e `npm ci` para o frontend. No GitHub, a
+[primeira execução do CI](https://github.com/GSHolanda/labtrack_gerenciamento_de_sistema/actions/runs/35953278161)
+(commit `9ab6c74`) passou nos quatro jobs em 3 min 18 s: backend com cobertura,
+backend no PostgreSQL 16, simulador e frontend.
 
 ## Próxima etapa
 
