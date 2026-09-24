@@ -4,14 +4,15 @@ from collections.abc import Iterator
 from typing import Annotated
 
 from fastapi import Depends, Request
-from fastapi.security import OAuth2PasswordBearer
+from fastapi.security import APIKeyHeader, OAuth2PasswordBearer
 from sqlalchemy.orm import Session
 
 from app.core.config import Settings, get_settings
 from app.core.exceptions import AuthenticationError, PermissionDeniedError
 from app.domain.permissions import Permission, has_permission
-from app.models import User
+from app.models import Instrument, User
 from app.services.auth_service import AuthService
+from app.services.instrument_integration_service import InstrumentIntegrationService
 
 
 def get_db(request: Request) -> Iterator[Session]:
@@ -66,6 +67,25 @@ def require_permission(permission: Permission):  # type: ignore[no-untyped-def]
         return user
 
     return dependency
+
+
+# --- Autenticação de instrumentos ------------------------------------------------
+
+
+instrument_key_scheme = APIKeyHeader(
+    name="X-Instrument-Key",
+    auto_error=False,
+    description="Chave de integração do equipamento (exibida no cadastro ou na rotação)",
+)
+
+
+def get_current_instrument(
+    session: DbSession, api_key: Annotated[str | None, Depends(instrument_key_scheme)]
+) -> Instrument:
+    return InstrumentIntegrationService(session).authenticate(api_key)
+
+
+CurrentInstrumentDep = Annotated[Instrument, Depends(get_current_instrument)]
 
 
 def client_ip(request: Request) -> str | None:

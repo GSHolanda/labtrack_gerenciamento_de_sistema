@@ -24,6 +24,9 @@ dist/
 *.db
 *.sqlite3
 
+# Chaves de integração do simulador (geradas por "seed-demo")
+instrument-simulator/config.json
+
 # IDE / SO
 .vscode/
 .idea/

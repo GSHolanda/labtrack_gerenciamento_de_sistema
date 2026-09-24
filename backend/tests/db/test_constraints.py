@@ -11,7 +11,7 @@ from sqlalchemy.orm.exc import StaleDataError
 
 from app.database.session import build_session_factory
 from app.domain.enums import ResultSource, SampleStatus, SpecStatus
-from app.models import Sample, TestDefinition, TestResult
+from app.models import Instrument, Sample, TestDefinition, TestResult
 
 from .conftest import LabData
 
@@ -146,6 +146,16 @@ def test_sample_code_is_unique(session: Session, lab: LabData) -> None:
         created_by_id=lab.analyst.id,
     )
     _assert_rejected(session, duplicate)
+
+
+def test_instrument_key_hash_is_unique(session: Session, lab: LabData) -> None:
+    clone = Instrument(
+        code="PH-METER-02",
+        name="pHmetro portátil",
+        instrument_type="PH_METER",
+        api_key_hash=lab.instrument.api_key_hash,
+    )
+    _assert_rejected(session, clone)
 
 
 def test_optimistic_locking_detects_concurrent_update(engine: Engine, lab: LabData) -> None:

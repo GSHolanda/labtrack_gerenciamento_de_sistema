@@ -1,5 +1,7 @@
-"""Primitivas de segurança: hash de senha e tokens JWT."""
+"""Primitivas de segurança: hash de senha, tokens JWT e chaves de instrumentos."""
 
+import hashlib
+import secrets
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 
@@ -67,3 +69,24 @@ def decode_access_token(token: str, *, secret: str, algorithm: str) -> TokenPayl
         role=str(claims.get("role", "")),
         expires_at=datetime.fromtimestamp(claims["exp"], tz=UTC),
     )
+
+
+# --- Chaves de API dos instrumentos -------------------------------------------
+
+INSTRUMENT_KEY_PREFIX = "lt_inst_"
+INSTRUMENT_KEY_MAX_LENGTH = 128
+
+
+def generate_instrument_key() -> str:
+    """Chave aleatória de 256 bits. É exibida uma única vez; o banco guarda só o hash."""
+    return INSTRUMENT_KEY_PREFIX + secrets.token_urlsafe(32)
+
+
+def hash_instrument_key(key: str) -> str:
+    """SHA-256 da chave.
+
+    A chave já tem alta entropia, então um hash rápido basta (diferente de senhas,
+    que precisam de bcrypt). Por ser determinístico, permite localizar o
+    instrumento pelo hash sem jamais armazenar a chave.
+    """
+    return hashlib.sha256(key.encode()).hexdigest()

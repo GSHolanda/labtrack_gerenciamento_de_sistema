@@ -107,12 +107,38 @@ o Swagger documenta cada uma separadamente.
 ### Instrumentos: gestão
 | Método | Rota                          | Permissão           | Descrição                                          |
 | ------ | ----------------------------- | ------------------- | -------------------------------------------------- |
-| GET    | `/instruments`                | autenticado         | Equipamentos com status e última comunicação       |
+| GET    | `/instruments`                | autenticado         | Equipamentos com status, calibração e última comunicação |
 | POST   | `/instruments`                | `INSTRUMENT_MANAGE` | Cadastra equipamento (chave exibida uma única vez) |
 | GET    | `/instruments/{id}`           | autenticado         | Detalhe                                            |
-| PATCH  | `/instruments/{id}`           | `INSTRUMENT_MANAGE` | Altera status, calibração, localização             |
+| PATCH  | `/instruments/{id}`           | `INSTRUMENT_MANAGE` | Altera status, calibração, localização e dados cadastrais |
 | POST   | `/instruments/{id}/rotate-key`| `INSTRUMENT_MANAGE` | Gera nova chave de integração                      |
-| GET    | `/instruments/{id}/messages`  | autenticado         | Log de mensagens recebidas (aceitas e rejeitadas)  |
+| GET    | `/instruments/{id}/messages`  | autenticado         | Log de mensagens recebidas (aceitas e recusadas)   |
+
+**Implementado na ETAPA 8.** Filtros de `GET /instruments`: `q` (código, nome,
+local ou número de série), `status` e `instrument_type`; `sort` aceita `code`,
+`name`, `status`, `calibration_due_date` e `last_communication_at`. Cada
+equipamento traz dois campos calculados:
+
+- `calibration_valid`: a calibração vale até `calibration_due_date`, inclusive
+  (data em UTC). Sem data registrada, não é válida.
+- `online`: houve comunicação (heartbeat, worklist ou resultado) nos últimos
+  5 minutos.
+
+O cadastro exige `code`, `name`, `instrument_type` e `calibration_due_date`. O
+código é normalizado para maiúsculas e, junto com o tipo, não pode ser alterado
+depois: identifica o equipamento nos resultados já gravados. Código ou número de
+série repetidos retornam `409 DUPLICATED_INSTRUMENT`. `PATCH` recusa `null` em
+`name`, `status` e `calibration_due_date`; alterações são auditadas
+(`INSTRUMENT_UPDATED`) apenas com os campos que mudaram.
+
+A resposta do cadastro e da rotação inclui `api_key` (`lt_inst_...`). A chave é
+exibida **somente** nessa resposta: o banco guarda apenas o SHA-256 dela, e o
+audit trail não registra nem a chave nem o hash. A rotação aceita um `reason`
+opcional (`INSTRUMENT_KEY_ROTATED`) e invalida a chave anterior no mesmo commit.
+
+`GET /instruments/{id}/messages` é paginado (mais recentes primeiro), aceita
+`status=ACCEPTED|REJECTED` e devolve o `payload` exatamente como foi recebido,
+com código e mensagem da recusa ou o `test_result_id` gerado.
 
 ### Instrumentos: integração (header `X-Instrument-Key`)
 | Método | Rota                     | Descrição                                                          |
@@ -120,6 +146,24 @@ o Swagger documenta cada uma separadamente.
 | GET    | `/instruments/worklist`  | Testes pendentes compatíveis com o tipo do instrumento             |
 | POST   | `/instruments/results`   | Envia um resultado                                                 |
 | POST   | `/instruments/heartbeat` | Sinaliza que o equipamento está conectado                          |
+
+Chave ausente, desconhecida ou revogada retorna `401 INVALID_INSTRUMENT_KEY`. O
+JWT de um usuário não autentica um instrumento, e a chave de um instrumento não
+dá acesso às rotas de usuário. Como não há equipamento a quem atribuir a
+tentativa, ela vai para o log da aplicação, e não para o log de mensagens.
+
+**Worklist.** Retorna os testes `PENDING` de amostras `IN_ANALYSIS` cujo tipo de
+teste exige o tipo do equipamento, ordenados por prioridade (`URGENT` →
+`LOW`), recebimento e ID. `limit` vai de 1 a 100 (padrão 50). Cada item traz
+`sample_code`, `priority`, `received_at`, `test`, `test_name`, `unit`,
+`spec_min`, `spec_max`, `decimal_places` e `assigned_at`. Equipamento
+inativo, em manutenção ou com calibração vencida recebe `409` com o código
+correspondente; mesmo assim a comunicação é registrada.
+
+**Heartbeat.** O corpo é opcional (`{"instrument_id": "PH-METER-01"}`); se
+enviado, precisa ser o dono da chave. Funciona também para equipamentos parados e
+responde `status`, `calibration_due_date`, `calibration_valid`, `can_measure` e
+`server_time`.
 
 Exemplo de envio:
 
@@ -132,7 +176,7 @@ Content-Type: application/json
   "instrument_id": "PH-METER-01",
   "sample_code": "SMP-2026-0001",
   "test": "PH",
-  "result": 7.21,
+  "result": "7.21",
   "unit": "pH"
 }
 ```
@@ -142,28 +186,51 @@ Content-Type: application/json
 {
   "message_id": 318,
   "status": "ACCEPTED",
+  "result_id": 912,
   "sample_code": "SMP-2026-0001",
   "test": "PH",
-  "result": 7.21,
+  "result": "7.21",
+  "unit": "pH",
   "spec_status": "IN_SPEC",
-  "spec_min": 6.5,
-  "spec_max": 7.5
+  "spec_min": "6.5000",
+  "spec_max": "7.5000"
 }
 ```
 
-Rejeições possíveis (a mensagem é gravada como `REJECTED` com o código):
+`result` aceita número ou texto, com até 14 dígitos e 4 casas decimais. Códigos
+de amostra e de teste são normalizados para maiúsculas; a unidade é comparada
+exatamente (`mS` ≠ `ms`). Campos extras são recusados. O resultado aceito é
+gravado com `source = INSTRUMENT`, sem `entered_by`, e auditado como
+`RESULT_ENTERED` pelo próprio equipamento (`actor_type = INSTRUMENT`). O
+resultado, a mensagem `ACCEPTED` e a auditoria são gravados na mesma transação.
+Um resultado de instrumento não impede a aprovação pelo revisor: o princípio
+dos quatro olhos considera apenas os usuários que lançaram resultados.
+
+Rejeições possíveis, na ordem em que são verificadas. A mensagem é gravada como
+`REJECTED` com o código, auditada como `INSTRUMENT_MESSAGE_REJECTED` (vinculada à
+timeline da amostra quando o código existe) e nenhum resultado é gravado. O
+envelope de erro traz `details.message_id`:
 
 | Código                      | HTTP | Situação                                                   |
 | --------------------------- | ---- | ---------------------------------------------------------- |
-| `INSTRUMENT_ID_MISMATCH`    | 403  | `instrument_id` do corpo difere do dono da chave           |
-| `INSTRUMENT_NOT_ACTIVE`     | 409  | Equipamento em manutenção ou inativo                       |
-| `CALIBRATION_EXPIRED`       | 409  | Calibração vencida                                         |
+| `INVALID_PAYLOAD`           | 422  | Corpo ausente, não é objeto, campo ausente/extra ou valor inválido (`details.errors`) |
+| `INSTRUMENT_ID_MISMATCH`    | 403  | `instrument_id` do corpo difere do dono da chave (RN-19)   |
+| `INSTRUMENT_NOT_ACTIVE`     | 409  | Equipamento em manutenção ou inativo (RN-20)               |
+| `CALIBRATION_EXPIRED`       | 409  | Calibração vencida ou não registrada (RN-20)               |
 | `SAMPLE_NOT_FOUND`          | 404  | Código de amostra inexistente                              |
-| `SAMPLE_NOT_IN_ANALYSIS`    | 409  | Amostra não está em análise                                |
+| `SAMPLE_NOT_IN_ANALYSIS`    | 409  | Amostra não está em análise (RN-22)                        |
 | `TEST_NOT_ASSIGNED`         | 409  | Teste não atribuído à amostra                              |
-| `TEST_ALREADY_COMPLETED`    | 409  | Teste já tem resultado (correção só manual, com justificativa) |
-| `INSTRUMENT_TYPE_MISMATCH`  | 409  | Tipo do equipamento incompatível com o teste               |
-| `UNIT_MISMATCH`             | 422  | Unidade diferente da especificada                          |
+| `SAMPLE_TEST_CANCELLED`     | 409  | Teste atribuído, mas cancelado                             |
+| `INSTRUMENT_TYPE_MISMATCH`  | 409  | Tipo do equipamento incompatível com o teste (RN-21)       |
+| `TEST_ALREADY_COMPLETED`    | 409  | Teste já tem resultado; correção só manual, com justificativa (RN-22) |
+| `UNIT_MISMATCH`             | 422  | Unidade diferente da especificada (RN-23)                  |
+
+Envios simultâneos para o mesmo teste são serializados: no PostgreSQL a amostra
+é bloqueada (`SELECT ... FOR UPDATE`) durante a validação e, como última
+defesa, o índice único de versão vigente impede duas gravações. O segundo envio
+é recusado como `TEST_ALREADY_COMPLETED` e também fica no log. JSON sintaticamente
+inválido é recusado pelo framework (`422 VALIDATION_ERROR`) antes da integração
+e não entra no log, pois não há conteúdo a registrar.
 
 ### Audit trail
 | Método | Rota                 | Permissão    | Descrição                                                                  |

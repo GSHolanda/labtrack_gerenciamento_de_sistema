@@ -6,6 +6,7 @@ from typing import Any
 
 from sqlalchemy.orm import Session
 
+from app.core.clock import utcnow
 from app.core.exceptions import BusinessRuleError, ConflictError, NotFoundError
 from app.core.security import verify_password
 from app.domain.audit import AuditAction
@@ -76,7 +77,7 @@ class SampleService:
         if client is None or not client.is_active:
             raise BusinessRuleError("Cliente inexistente ou inativo.", code="INVALID_CLIENT")
         received_at = _as_utc(data.received_at)
-        if received_at > datetime.now(UTC) + CLOCK_SKEW:  # RN-03
+        if received_at > utcnow() + CLOCK_SKEW:  # RN-03
             raise BusinessRuleError(
                 "A data de recebimento não pode estar no futuro.", code="RECEIVED_AT_IN_FUTURE"
             )
@@ -97,6 +98,7 @@ class SampleService:
                 responsible_id=data.responsible_id,
                 notes=data.notes,
                 created_by_id=actor.id,
+                created_at=utcnow(),
             )
         )
         self._add_history(sample, None, SampleStatus.RECEIVED, actor, None)
@@ -285,7 +287,7 @@ class SampleService:
             precondition(sample)
 
         previous = sample.status
-        now = datetime.now(UTC)
+        now = utcnow()
         sample.status = target
         if action == SampleAction.SUBMIT_FOR_REVIEW:
             sample.submitted_at = now
@@ -332,6 +334,7 @@ class SampleService:
                     spec_max=limits.spec_max,
                     unit=definition.unit,
                     assigned_by_id=actor.id,
+                    assigned_at=utcnow(),
                 )
             )
         self._audit_sample(
@@ -356,7 +359,7 @@ class SampleService:
                 from_status=from_status,
                 to_status=to_status,
                 changed_by_id=actor.id,
-                changed_at=datetime.now(UTC),
+                changed_at=utcnow(),
                 reason=reason,
             )
         )

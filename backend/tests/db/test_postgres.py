@@ -1,11 +1,18 @@
-"""Testes que dependem de recursos do PostgreSQL (triggers, migrações reais)."""
+"""Testes que dependem de recursos do PostgreSQL (triggers, migrações, concorrência)."""
+
+import threading
+from datetime import date, timedelta
 
 import pytest
-from sqlalchemy import Engine, text
+from sqlalchemy import Engine, select, text
 from sqlalchemy.exc import DBAPIError
 
+from app.core.exceptions import AppError
 from app.database.session import build_session_factory
-from app.models import AuditLog
+from app.domain.enums import SampleStatus
+from app.models import AuditLog, Instrument, InstrumentResult, TestResult
+from app.services.audit_service import AuditService
+from app.services.instrument_integration_service import InstrumentIntegrationService
 
 from .conftest import create_lab_data
 
@@ -65,3 +72,48 @@ def test_migrations_match_models(postgres_engine: Engine) -> None:
     with postgres_engine.connect() as connection:
         context = MigrationContext.configure(connection, opts={"compare_type": True})
         assert compare_metadata(context, Base.metadata) == []
+
+
+def test_concurrent_instrument_results_never_overwrite(postgres_engine: Engine) -> None:
+    factory = build_session_factory(postgres_engine)
+    with factory() as session:
+        lab = create_lab_data(session)
+        lab.sample.status = SampleStatus.IN_ANALYSIS
+        lab.instrument.calibration_due_date = date.today() + timedelta(days=30)
+        session.commit()
+        instrument_id, sample_code = lab.instrument.id, lab.sample.sample_code
+
+    barrier = threading.Barrier(2)
+    outcomes: list[str] = []
+
+    def send(value: str) -> None:
+        with factory() as session:
+            instrument = session.get(Instrument, instrument_id)
+            service = InstrumentIntegrationService(session)
+            payload = {
+                "instrument_id": "PH-METER-01",
+                "sample_code": sample_code,
+                "test": "PH",
+                "result": value,
+                "unit": "pH",
+            }
+            barrier.wait()
+            try:
+                service.submit_result(instrument, payload)
+                outcomes.append("ACCEPTED")
+            except AppError as error:
+                outcomes.append(error.code)
+
+    threads = [threading.Thread(target=send, args=(value,)) for value in ("7.1", "7.2")]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join(timeout=30)
+
+    assert sorted(outcomes) == ["ACCEPTED", "TEST_ALREADY_COMPLETED"]
+    with factory() as session:
+        [result] = session.scalars(select(TestResult)).all()
+        assert result.is_current and result.version == 1
+        statuses = sorted(session.scalars(select(InstrumentResult.status)).all())
+        assert statuses == ["ACCEPTED", "REJECTED"]
+        assert AuditService(session).verify().valid is True

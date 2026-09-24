@@ -1,9 +1,19 @@
-from sqlalchemy import func, or_, select, text
-from sqlalchemy.orm import selectinload
+from sqlalchemy import case, func, or_, select, text
+from sqlalchemy.orm import contains_eager, selectinload
 
+from app.domain.enums import SampleStatus, SampleTestStatus
+from app.domain.instruments import PRIORITY_RANK
 from app.domain.pagination import PageRequest, PageResult
 from app.domain.sample_code import parse_sequence, year_prefix
-from app.models import Client, Product, Sample, SampleStatusHistory, SampleTest, TestResult
+from app.models import (
+    Client,
+    Product,
+    Sample,
+    SampleStatusHistory,
+    SampleTest,
+    TestDefinition,
+    TestResult,
+)
 from app.repositories.base import BaseRepository
 from app.schemas.samples import SampleFilter
 
@@ -37,6 +47,22 @@ class SampleRepository(BaseRepository[Sample]):
                 selectinload(Sample.created_by),
                 selectinload(Sample.reviewed_by),
             )
+        )
+
+    def id_by_code(self, sample_code: str) -> int | None:
+        return self.session.scalar(select(Sample.id).where(Sample.sample_code == sample_code))
+
+    def find_by_code_for_update(self, sample_code: str) -> Sample | None:
+        """Carrega a amostra bloqueando a linha até o fim da transação (PostgreSQL).
+
+        Serializa resultados simultâneos de instrumentos e transições de status da
+        mesma amostra: quem chega depois relê o estado já confirmado.
+        """
+        return self.session.scalar(
+            select(Sample)
+            .where(Sample.sample_code == sample_code.upper())
+            .with_for_update(of=Sample)
+            .execution_options(populate_existing=True)
         )
 
     def next_sequence(self, year: int) -> int:
@@ -101,3 +127,30 @@ class SampleRepository(BaseRepository[Sample]):
 
 class SampleTestRepository(BaseRepository[SampleTest]):
     model = SampleTest
+
+    def find_in_sample(self, sample_id: int, test_code: str) -> SampleTest | None:
+        return self.session.scalar(
+            select(SampleTest)
+            .join(SampleTest.test_definition)
+            .where(SampleTest.sample_id == sample_id, TestDefinition.code == test_code.upper())
+            .execution_options(populate_existing=True)
+        )
+
+    def pending_for_instrument_type(self, instrument_type: str, limit: int) -> list[SampleTest]:
+        """Worklist: testes pendentes, em amostras em análise, que o tipo de equipamento executa."""
+        priority = case(PRIORITY_RANK, value=Sample.priority, else_=len(PRIORITY_RANK))
+        return list(
+            self.session.scalars(
+                select(SampleTest)
+                .join(SampleTest.sample)
+                .join(SampleTest.test_definition)
+                .where(
+                    Sample.status == SampleStatus.IN_ANALYSIS,
+                    SampleTest.status == SampleTestStatus.PENDING,
+                    TestDefinition.instrument_type == instrument_type,
+                )
+                .options(contains_eager(SampleTest.sample))
+                .order_by(priority, Sample.received_at, SampleTest.id)
+                .limit(limit)
+            ).unique()
+        )

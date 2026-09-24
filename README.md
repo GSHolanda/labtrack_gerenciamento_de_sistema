@@ -6,7 +6,7 @@ total, regras de negócio de um ambiente regulado, integração com instrumentos
 e audit trail imutável.
 
 > 🚧 **Em desenvolvimento.** O projeto é construído em 14 etapas incrementais.
-> Veja o [plano de implementação](docs/roadmap.md). Etapa atual: **7 de 14 concluídas**.
+> Veja o [plano de implementação](docs/roadmap.md). Etapa atual: **8 de 14 concluídas**.
 
 ---
 
@@ -98,9 +98,14 @@ hashes e endpoint da Sample Timeline, com histórico de correções e OOS.
 As consultas administrativas exigem `AUDIT_READ`; a timeline exige `SAMPLE_READ`.
 Veja filtros, respostas e limites da verificação na [documentação da API](docs/api.md).
 
-A próxima entrega é a integração com instrumentos e o simulador (ETAPA 8).
-Telas operacionais, dashboard e PDF seguem o roadmap; o frontend atual é a
-estrutura inicial.
+A ETAPA 8 adiciona a gestão de equipamentos (chave de integração exibida uma
+única vez e guardada só como hash, rotação, log de mensagens), a integração
+REST (`worklist`, `results`, `heartbeat`) com as regras RN-19 a RN-24, o
+simulador de instrumentos em `instrument-simulator/` e os dados de
+demonstração, gerados pelos próprios serviços com histórico coerente.
+
+A próxima entrega é o frontend (ETAPA 9). Dashboard e PDF seguem o roadmap; o
+frontend atual é a estrutura inicial.
 
 **Backend**
 
@@ -115,6 +120,26 @@ python -m app.cli create-admin     # cria o usuário 'admin' (pede a senha)
 uvicorn app.main:app --reload      # http://localhost:8000/docs
 pytest                             # testes
 ```
+
+**Dados de demonstração e simulador de instrumentos**
+
+Num banco recém-migrado, gere 20 amostras em todas as etapas do fluxo, com
+5 produtos, 4 clientes, 5 usuários, 6 equipamentos e 8 tipos de teste. O
+histórico cobre as últimas semanas e é produzido pelos mesmos serviços da API.
+A senha de todos os usuários é `Demo@2026` (ou `LABTRACK_DEMO_PASSWORD`).
+Se o `admin` já existir, a senha dele não muda.
+
+```bash
+cd backend
+python -m app.cli seed-demo --simulator-config ../instrument-simulator/config.json
+
+cd ../instrument-simulator
+pip install -e ".[dev]"
+python -m simulator worklist           # testes pendentes por equipamento
+python -m simulator run --once         # mede e envia os resultados pela API
+```
+
+Veja as opções no [README do simulador](instrument-simulator/README.md).
 
 **Frontend**
 

@@ -1,11 +1,11 @@
 """Registro de resultados analíticos com avaliação OOS e versionamento."""
 
 import logging
-from datetime import UTC, datetime
 from decimal import Decimal
 
 from sqlalchemy.orm import Session
 
+from app.core.clock import utcnow
 from app.core.exceptions import BusinessRuleError, ConflictError, NotFoundError
 from app.domain.audit import Actor, AuditAction
 from app.domain.enums import ResultSource, SampleStatus, SampleTestStatus, SpecStatus
@@ -111,7 +111,7 @@ class ResultService:
                 is_current=True,
                 change_reason=change_reason if previous else None,
                 comment=comment,
-                entered_at=datetime.now(UTC),
+                entered_at=utcnow(),
             )
         )
         sample_test.status = SampleTestStatus.COMPLETED

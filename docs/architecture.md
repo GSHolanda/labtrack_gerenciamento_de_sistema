@@ -123,6 +123,30 @@ com uma chave por instrumento (`X-Instrument-Key`), consulta a *worklist*
 Como o contrato é HTTP, o simulador pode ser trocado por um driver real ou por
 um middleware de integração sem nenhuma mudança no backend.
 
+```
+instrument-simulator/simulator/
+├── client.py        LabTrackClient: HTTP (httpx) + X-Instrument-Key; erros viram ApiError
+├── measurement.py   leitura dentro da faixa central da especificação ou OOS
+├── runner.py        ciclo: heartbeat → worklist → medir → enviar; relatório por ciclo
+├── config.py        URL da API e chave de cada equipamento (config.json)
+└── __main__.py      CLI: run, worklist, send, heartbeat
+```
+
+No backend, a integração fica em `InstrumentIntegrationService` (RN-19 a
+RN-24) e a gestão em `InstrumentService`. As regras puras (calibração, janela
+de online, compatibilidade de tipo e unidade) ficam em `domain/instruments.py`.
+
+## 4.1 Dados de demonstração
+
+`python -m app.cli seed-demo` popula um banco vazio chamando os **mesmos
+serviços da API**: cadastros, amostras, resultados manuais e de instrumentos,
+recusas de integração, correções e revisões. Nada é inserido direto nas
+tabelas, então o audit trail, a cadeia de hashes e a timeline ficam coerentes.
+Para distribuir o histórico nas semanas anteriores, os serviços obtêm a hora
+de `core/clock.py`, que a geração fixa no momento de cada evento, sempre em
+ordem cronológica. Na API o relógio é sempre o real; só o código do CLI pode
+fixá-lo.
+
 ## 5. Aspectos transversais
 
 | Aspecto                 | Abordagem                                                                                                                     |
@@ -134,7 +158,7 @@ um middleware de integração sem nenhuma mudança no backend.
 | **Erros**               | Exceções de aplicação (`NotFound`, `BusinessRuleError`, `PermissionDenied`...) convertidas por um handler global em JSON padronizado |
 | **Logs**                | Texto em desenvolvimento, JSON em produção, com `request_id` para correlação                                                  |
 | **Validação**           | Pydantic na borda (formato) + regras de negócio nos serviços/domínio + constraints no banco (defesa em profundidade)           |
-| **Datas**               | Armazenadas em UTC (`TIMESTAMPTZ`); convertidas para o fuso do usuário na interface                                            |
+| **Datas**               | Armazenadas em UTC (`TIMESTAMPTZ`); convertidas para o fuso do usuário na interface. Eventos de negócio usam o relógio da aplicação (`core/clock.py`) |
 | **Concorrência**        | *Optimistic locking* (coluna `version`) em amostras para evitar que duas pessoas sobrescrevam alterações                       |
 | **Documentação da API** | OpenAPI/Swagger gerado automaticamente em `/docs`                                                                              |
 
@@ -168,6 +192,9 @@ A separação em camadas limita o impacto de trocar uma peça da stack:
 | 11  | Integração de instrumentos via REST + log bruto das mensagens           | Toda mensagem recebida é rastreável, inclusive as rejeitadas, com o motivo                                |
 | 12  | API versionada (`/api/v1`) e formato de erro padronizado                | Evolução sem quebrar clientes (frontend e instrumentos)                                                   |
 | 13  | Segregação de funções (quem inseriu resultado não aprova a amostra)     | Princípio dos "quatro olhos", prática comum em laboratórios                                              |
+| 14  | Chave de instrumento aleatória (256 bits) guardada como SHA-256         | Exibida uma vez; hash determinístico permite localizar o equipamento sem armazenar a chave; rotação revoga na hora |
+| 15  | Mensagem de instrumento recusada é registrada em transação própria      | O resultado é descartado (rollback), mas o log e a auditoria da recusa são confirmados                    |
+| 16  | Dados de demonstração gerados pelos serviços, com relógio controlado    | Mesmas validações e mesmo audit trail da operação real; histórico cronológico e verificável              |
 
 ## 8. Integridade de dados
 

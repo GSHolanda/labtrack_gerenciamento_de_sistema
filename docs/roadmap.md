@@ -12,8 +12,8 @@ sistema funcionando, testado e versionado.
 | 5     | Samples e testes            | ✅ Concluída |
 | 6     | Resultados e regras OOS     | ✅ Concluída |
 | 7     | Audit trail                 | ✅ Concluída |
-| 8     | Instrument Simulator        | ⏳ Próxima   |
-| 9     | Frontend                    | Planejada    |
+| 8     | Instrument Simulator        | ✅ Concluída |
+| 9     | Frontend                    | ⏳ Próxima   |
 | 10    | Dashboard                   | Planejada    |
 | 11    | Relatórios                  | Planejada    |
 | 12    | Testes                      | Planejada    |
@@ -77,11 +77,24 @@ sistema funcionando, testado e versionado.
 - Testes de permissões, paginação, filtros, adulteração de campos e encadeamento;
   limites da cadeia de hashes documentados. Sem rotas de escrita na auditoria.
 
-### ETAPA 8: Instrument Simulator
+### ETAPA 8: Instrument Simulator ✅
 - Cadastro de instrumentos com chave de API (hash) e rotação de chave.
 - Endpoints de integração: `worklist`, `results`, `heartbeat`; log de mensagens.
 - Simulador CLI (um ou vários instrumentos, taxa de OOS configurável).
 - **Dados de demonstração** gerados pelos próprios serviços (audit trail coerente): 20 amostras, 5 produtos, 4 clientes, 5 usuários, 6 equipamentos, 8 tipos de teste, com resultados variados e alguns OOS.
+- Chave `lt_inst_...` de 256 bits exibida uma vez; banco guarda só o SHA-256
+  (migração `0003`: hash único). Rotação auditada e com efeito imediato.
+- RN-19 a RN-24 aplicadas na ordem documentada; toda mensagem de resultado,
+  inclusive malformada, fica no log com o payload original. Recusas são
+  auditadas e aparecem na timeline da amostra.
+- Envios simultâneos serializados por bloqueio da amostra (testado contra
+  PostgreSQL real): um é aceito e o outro recusado, nunca sobrescrito.
+- `python -m app.cli seed-demo` com relógio controlado: histórico de 50 dias,
+  cadeia de hashes válida, incidentes de integração reais (unidade errada,
+  envio duplicado, calibração vencida, equipamento em manutenção) e amostras
+  pendentes para o simulador.
+- Simulador em `instrument-simulator/` (`run`, `worklist`, `send`,
+  `heartbeat`), com testes unitários e ponta a ponta contra a API.
 
 ### ETAPA 9: Frontend
 - Layout corporativo com menu lateral (Dashboard, Samples, Tests, Results, Instruments, Audit Trail, Reports, Administration).

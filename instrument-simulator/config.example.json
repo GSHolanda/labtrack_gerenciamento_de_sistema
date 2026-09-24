@@ -1,0 +1,9 @@
+{
+  "api_url": "http://localhost:8000/api/v1",
+  "oos_rate": 0.1,
+  "interval_seconds": 10,
+  "instruments": [
+    { "code": "PH-METER-01", "key": "lt_inst_cole-aqui-a-chave-exibida-no-cadastro" },
+    { "code": "HPLC-01", "key": "lt_inst_cole-aqui-a-chave-exibida-no-cadastro", "oos_rate": 0.25 }
+  ]
+}
