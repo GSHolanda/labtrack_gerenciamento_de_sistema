@@ -18,7 +18,7 @@ sistema funcionando, testado e versionado.
 | 11    | Relatórios                  | ✅ Concluída |
 | 12    | Testes                      | ✅ Concluída |
 | 13    | Docker                      | ✅ Concluída |
-| 14    | Documentação e apresentação | ⏳ Próxima   |
+| 14    | Documentação e apresentação | ✅ Concluída |
 
 ---
 
@@ -180,7 +180,17 @@ sistema funcionando, testado e versionado.
 - CI: job Docker constrói as imagens, sobe a stack e roda
   `scripts/smoke_test.py` duas vezes (primeira subida e subida com dados).
 
-### ETAPA 14: Documentação e apresentação
+### ETAPA 14: Documentação e apresentação ✅
 - README final com screenshots.
 - Diagramas de arquitetura, ER e ciclo da amostra.
 - Roteiro de apresentação de 5 minutos, decisões técnicas, perguntas prováveis de entrevista e respostas.
+- README reorganizado por funcionalidade, com execução em Docker primeiro,
+  passeio por oito capturas da stack Docker e números de qualidade.
+- Diagramas: implantação (README, [deployment.md](deployment.md) e
+  [architecture.md](architecture.md)), ER em [database.md](database.md) e
+  máquina de estados em [sample-lifecycle.md](sample-lifecycle.md).
+- [Apresentação](apresentacao.md): resumo de 30 segundos, roteiro de 5 minutos
+  com as amostras da demonstração, decisões técnicas com alternativas e 12
+  perguntas de entrevista com respostas.
+- Correção encontrada nas capturas: valores longos (impressão digital) não
+  transbordam mais a coluna de alterações do audit trail.

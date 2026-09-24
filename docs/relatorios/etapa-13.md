@@ -37,6 +37,10 @@ instrumentos para enviar resultados pela API REST.
 - Audit trail registrou o IP do cliente (gateway do Docker), e não o do Nginx.
 - Suítes: backend 469 em SQLite (96,9% de cobertura) e 475 no PostgreSQL,
   simulador 41 e frontend 94.
+- No GitHub, a [execução do CI](https://github.com/GSHolanda/labtrack_gerenciamento_de_sistema/actions/runs/35954681259)
+  do commit `d4d167f` passou nos cinco jobs, inclusive o **Docker**: build com
+  as imagens oficiais do Docker Hub, stack completa, smoke test, segunda subida
+  com dados preservados e novo smoke test.
 
 ## Problemas encontrados
 

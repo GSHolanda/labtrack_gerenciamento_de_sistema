@@ -28,7 +28,7 @@ Leia primeiro: `docs/architecture.md`, `docs/database.md`, `docs/api.md`,
 | 11 Relatórios (prévia JSON, PDF auditado com impressão digital) | ✅ concluída e validada |
 | 12 Testes (E2E, rastreabilidade RN, PostgreSQL, cobertura, CI) | ✅ concluída e validada |
 | 13 Docker (imagens, compose completo, smoke test no CI) | ✅ concluída e validada |
-| 14 | pendente (ver `docs/roadmap.md`) |
+| 14 Documentação final e apresentação | ✅ concluída |
 
 ## ETAPA 6: entrega concluída
 - `app/domain/specification.py::evaluate()` (OOS, limites inclusivos, Decimal) + testes unitários.
@@ -241,15 +241,27 @@ Leia primeiro: `docs/architecture.md`, `docs/database.md`, `docs/api.md`,
   Dockerfiles fora do repositório (CA e proxy injetados). Os Dockerfiles do
   repositório são os padrão e são construídos sem ajustes no CI.
 
-### Próximos passos: ETAPA 14 (documentação e apresentação)
-1. README final: visão do produto, capturas de tela (dashboard, amostra com
-   timeline, relatório, audit trail), execução com Docker em primeiro lugar e
-   os parágrafos "A ETAPA N entrega..." condensados numa visão por funcionalidade.
-2. Diagramas: arquitetura (contêineres e camadas), ER e ciclo da amostra
-   (conferir os existentes em `docs/architecture.md`, `docs/database.md` e
-   `docs/sample-lifecycle.md`).
-3. `docs/apresentacao.md`: roteiro de 5 minutos, decisões técnicas e perguntas
-   prováveis de entrevista com respostas. Relatório final do projeto.
+## ETAPA 14: entrega concluída
+- README reescrito por funcionalidade: execução em Docker primeiro, oito
+  capturas em `docs/images/` (tiradas da stack Docker com a demonstração),
+  arquitetura, números de qualidade e desenvolvimento local; badge do CI
+  apontando para a branch `claude/festive-bell-x898pg`.
+- `docs/apresentacao.md`: resumo de 30 s, roteiro de 5 min (SMP-2026-0015 com
+  OOS bloqueando a aprovação, SMP-2026-0016 aprovável pela `ana.souza`,
+  SMP-2026-0005 com OOS corrigido), decisões com alternativas, 12 perguntas.
+- Seção de implantação em `docs/architecture.md`; roadmap com as 14 etapas ✅.
+- Correção: `.audit-change` com `overflow-wrap: anywhere` (hash longo
+  transbordava sobre o botão "Detalhes").
+- Relatórios das etapas 12, 13 e 14 em `docs/relatorios/`.
+
+### Projeto concluído: próximos passos opcionais
+1. Quando o usuário pedir: abrir PR de `claude/festive-bell-x898pg` para a
+   branch principal (`claude/inspiring-thompson-wefivy` é a HEAD do remoto) e,
+   depois do merge, tirar o `?branch=` do badge do CI no README.
+2. Evoluções citadas na apresentação: SSO (OIDC), bloqueio por tentativas de
+   login, notificações (OOS, amostras urgentes), relatórios por período e
+   exportação CSV, multi-laboratório.
+3. Commits das ETAPAS 1 a 5 têm autor Claude; reescrever só se o usuário pedir.
 
 ## Como rodar
 ```bash
@@ -274,6 +286,11 @@ Chromium (login com usuários de demonstração, dashboard, equipamentos online,
 emissão do PDF, recarga de rota profunda) sem erros de console, IP do cliente
 registrado no audit trail pelo proxy. Backend 469 testes em SQLite (96,9% de cobertura) e 475 com `--postgres`, simulador 41,
 frontend 94. Relatório: `docs/relatorios/etapa-13.md`.
+
+Validação da ETAPA 14: capturas conferidas uma a uma; a do audit trail revelou
+o transbordo do hash, corrigido e verificado no Chromium (a célula termina antes
+do botão). Frontend 94 testes, `tsc` e oxlint limpos; CI verde nas ETAPAS 12 e
+13 (runs 1 e 3 no GitHub Actions, este último com o job Docker).
 
 No Windows, o ambiente local já está em `backend/.venv`; use
 `.\backend\.venv\Scripts\Activate.ps1` a partir da raiz ou execute diretamente

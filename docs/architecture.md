@@ -164,6 +164,15 @@ de `core/clock.py`, que a geração fixa no momento de cada evento, sempre em
 ordem cronológica. Na API o relógio é sempre o real; só o código do CLI pode
 fixá-lo.
 
+## 4.2 Implantação
+
+Cada componente vira uma imagem: a API (Python, sem root), a interface (build
+do Vite servido pelo Nginx, que também faz o proxy de `/api`) e o simulador. O
+`docker-compose.yml` encadeia banco → migrações e demonstração (tarefa única) →
+API → interface e simulador, com condições de saúde. A API não publica porta:
+o navegador fala só com o Nginx e o simulador usa a rede interna. Detalhes,
+variáveis e o caminho para produção em [deployment.md](deployment.md).
+
 ## 5. Aspectos transversais
 
 | Aspecto                 | Abordagem                                                                                                                     |

@@ -859,6 +859,8 @@ textarea.input {
 .audit-change {
   max-width: 420px;
   font-size: 0.84rem;
+  /* Hashes e outros valores longos sem espaço quebram dentro da célula. */
+  overflow-wrap: anywhere;
 }
 
 .audit-change span,
