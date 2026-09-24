@@ -131,7 +131,7 @@ um middleware de integração sem nenhuma mudança no backend.
 | **Autorização**         | RBAC: matriz perfil → permissões definida no domínio e aplicada por dependência do FastAPI em cada rota                       |
 | **Transações**          | Uma transação por caso de uso, controlada pelo serviço (padrão *Unit of Work* da sessão SQLAlchemy)                           |
 | **Audit trail**         | `AuditService` grava na mesma transação; tabela *append-only* (sem UPDATE/DELETE, com trigger no PostgreSQL) e hash encadeado |
-| **Erros**               | Exceções de aplicação (`NotFound`, `BusinessRuleViolation`, `PermissionDenied`...) convertidas por um handler global em JSON padronizado |
+| **Erros**               | Exceções de aplicação (`NotFound`, `BusinessRuleError`, `PermissionDenied`...) convertidas por um handler global em JSON padronizado |
 | **Logs**                | Texto em desenvolvimento, JSON em produção, com `request_id` para correlação                                                  |
 | **Validação**           | Pydantic na borda (formato) + regras de negócio nos serviços/domínio + constraints no banco (defesa em profundidade)           |
 | **Datas**               | Armazenadas em UTC (`TIMESTAMPTZ`); convertidas para o fuso do usuário na interface                                            |

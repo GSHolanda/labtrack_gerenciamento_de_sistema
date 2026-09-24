@@ -14,7 +14,6 @@ from decimal import Decimal
 import pytest
 from sqlalchemy import Engine
 from sqlalchemy.orm import Session
-from sqlalchemy.pool import StaticPool
 
 import app.models  # noqa: F401
 from app.database.base import Base
@@ -37,7 +36,6 @@ POSTGRES_URL = os.getenv("LABTRACK_TEST_DATABASE_URL")
 @pytest.fixture
 def engine() -> Iterator[Engine]:
     engine = build_engine("sqlite+pysqlite:///:memory:")
-    engine.pool = StaticPool(engine.pool._creator)  # mesma conexão = mesmo banco em memória
     Base.metadata.create_all(engine)
     yield engine
     engine.dispose()

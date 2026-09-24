@@ -9,7 +9,7 @@ from app.main import create_app
 
 @pytest.fixture
 def settings() -> Settings:
-    return Settings(environment="test", _env_file=None)
+    return Settings(environment="test", database_url="sqlite+pysqlite:///:memory:", _env_file=None)
 
 
 @pytest.fixture

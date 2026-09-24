@@ -7,8 +7,8 @@ sistema funcionando, testado e versionado.
 | ----- | --------------------------- | ------------ |
 | 1     | Arquitetura e estrutura     | ✅ Concluída |
 | 2     | Banco de dados e modelos    | ✅ Concluída |
-| 3     | Backend e API (fundação)    | ⏳ Próxima   |
-| 4     | Autenticação e usuários     | Planejada    |
+| 3     | Backend e API (fundação)    | ✅ Concluída |
+| 4     | Autenticação e usuários     | ⏳ Próxima   |
 | 5     | Samples e testes            | Planejada    |
 | 6     | Resultados e regras OOS     | Planejada    |
 | 7     | Audit trail                 | Planejada    |
@@ -37,7 +37,7 @@ sistema funcionando, testado e versionado.
 - `docker-compose` com PostgreSQL para desenvolvimento.
 - Testes de constraints (ex.: resultado sem autor é recusado pelo banco), de *optimistic locking* e, contra PostgreSQL real, do trigger do audit trail e da consistência entre modelos e migrações.
 
-### ETAPA 3: Backend e API (fundação)
+### ETAPA 3: Backend e API (fundação) ✅
 - Sessão por requisição e controle de transação nos serviços.
 - Hierarquia de exceções da aplicação + *handler* global com envelope de erro padrão.
 - Middleware de `request_id` e log de acesso.
