@@ -321,6 +321,62 @@ A apresentação visual da timeline será implementada no frontend da ETAPA 9.
 | GET    | `/reports/samples/{id}`       | `REPORT_EXPORT`  | Dados do relatório da amostra (JSON)                            |
 | GET    | `/reports/samples/{id}/pdf`   | `REPORT_EXPORT`  | Relatório em PDF (geração é auditada)                           |
 
+**Dashboard, implementado na ETAPA 10.** As duas rotas aceitam `period_days`
+(1 a 366, padrão 30): os últimos N dias até o momento da consulta, como
+intervalo semiaberto `[início, fim)` em UTC. Todos os perfis têm `DASHBOARD_VIEW`,
+e consultar o dashboard não gera auditoria.
+
+`GET /dashboard/summary`:
+
+```json
+{
+  "generated_at": "2026-09-24T12:00:00Z",
+  "period": { "days": 90, "start": "...", "end": "...", "timezone": "America/Sao_Paulo" },
+  "workload": {
+    "open": 7, "received": 1, "in_analysis": 3, "awaiting_review": 3,
+    "open_with_oos": 1, "urgent_open": 1
+  },
+  "current": {
+    "received": 20, "approved": 10, "rejected": 2, "cancelled": 1,
+    "approval_rate": 0.8333,
+    "average_processing_hours": 51.2, "median_processing_hours": 49.0,
+    "oos_results": 5, "samples_with_oos": 5
+  },
+  "previous": { "...": "mesmos campos, período anterior de mesma duração" }
+}
+```
+
+- `workload` é a situação **atual**, independente do período. `open` soma
+  recebidas, em análise e aguardando revisão; `open_with_oos` conta as que têm
+  resultado vigente OOS num teste ativo (não podem ser aprovadas).
+- `received` usa a data de recebimento; `approved`, `rejected` e `cancelled`, a
+  data de finalização (`completed_at`).
+- `approval_rate` = aprovadas / (aprovadas + reprovadas); canceladas não entram.
+  Vazio (`null`) quando não há decisões.
+- Tempo de processamento: do recebimento à decisão do revisor (aprovação ou
+  reprovação), com média e mediana em horas.
+- `oos_results` conta resultados OOS registrados no período **em todas as
+  versões**: um OOS depois corrigido continua na estatística (RN-18).
+- `previous` é o período imediatamente anterior, de mesma duração, para comparação.
+
+`GET /dashboard/charts` traz:
+
+- `granularity`: `day` até 31 dias, `week` até 120 e `month` acima disso;
+- `throughput`: aprovadas, reprovadas e taxa por intervalo, **sem lacunas**
+  (intervalos vazios com zero e taxa `null`). `bucket` é o primeiro dia do
+  intervalo (a semana começa na segunda-feira);
+- `by_status`: amostras recebidas no período por status atual, os seis status
+  sempre presentes, na ordem do workflow;
+- `oos_by_test`: resultados registrados no período por teste (`results`, `oos`,
+  `oos_rate`), dos que mais tiveram OOS para os que menos tiveram.
+
+Dias, semanas e meses são agrupados no **fuso do laboratório**
+(`LABTRACK_LAB_TIMEZONE`, padrão `America/Sao_Paulo`): uma decisão às 23h30 de
+30/09 em São Paulo conta em setembro, embora já seja 01/10 em UTC. As datas
+continuam gravadas e devolvidas em UTC. Contagens e agrupamentos por status e
+por teste são feitos no banco. A série temporal lê apenas status e datas das
+amostras finalizadas na janela e agrupa no fuso local, sem SQL específico de um banco.
+
 ## Convenções
 
 ### Valores decimais

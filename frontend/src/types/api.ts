@@ -405,3 +405,67 @@ export interface InstrumentMessage {
   test_result_id: number | null
   payload: unknown
 }
+
+// --- Dashboard -----------------------------------------------------------------------------
+
+export type Granularity = 'day' | 'week' | 'month'
+
+export interface DashboardPeriod {
+  days: number
+  start: IsoDateTime
+  end: IsoDateTime
+  timezone: string
+}
+
+export interface Workload {
+  open: number
+  received: number
+  in_analysis: number
+  awaiting_review: number
+  open_with_oos: number
+  urgent_open: number
+}
+
+export interface PeriodTotals {
+  received: number
+  approved: number
+  rejected: number
+  cancelled: number
+  approval_rate: number | null
+  average_processing_hours: number | null
+  median_processing_hours: number | null
+  oos_results: number
+  samples_with_oos: number
+}
+
+export interface DashboardSummary {
+  generated_at: IsoDateTime
+  period: DashboardPeriod
+  workload: Workload
+  current: PeriodTotals
+  previous: PeriodTotals
+}
+
+export interface ThroughputPoint {
+  bucket: IsoDate
+  approved: number
+  rejected: number
+  approval_rate: number | null
+}
+
+export interface TestOos {
+  test_code: string
+  test_name: string
+  results: number
+  oos: number
+  oos_rate: number
+}
+
+export interface DashboardCharts {
+  generated_at: IsoDateTime
+  period: DashboardPeriod
+  granularity: Granularity
+  throughput: ThroughputPoint[]
+  by_status: { status: SampleStatus; count: number }[]
+  oos_by_test: TestOos[]
+}

@@ -7,8 +7,9 @@ Segue o princípio *12-factor*: toda configuração vem de variáveis de ambient
 
 from functools import lru_cache
 from typing import Literal
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
-from pydantic import Field
+from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 Environment = Literal["development", "test", "production"]
@@ -39,6 +40,19 @@ class Settings(BaseSettings):
     jwt_secret_key: str = Field(default="dev-secret-change-me-in-production-please", min_length=32)
     jwt_algorithm: Literal["HS256", "HS384", "HS512"] = "HS256"
     access_token_expire_minutes: int = Field(default=60, ge=5, le=24 * 60)
+
+    # Fuso do laboratório: agrupa indicadores por dia, semana e mês locais.
+    # As datas continuam gravadas em UTC.
+    lab_timezone: str = "America/Sao_Paulo"
+
+    @field_validator("lab_timezone")
+    @classmethod
+    def _valid_timezone(cls, value: str) -> str:
+        try:
+            ZoneInfo(value)
+        except (ZoneInfoNotFoundError, ValueError) as exc:
+            raise ValueError(f"Fuso horário desconhecido: {value}") from exc
+        return value
 
 
 @lru_cache

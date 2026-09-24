@@ -10,7 +10,7 @@ import type { CurrentUser } from '../types/api'
 type Handler = (request: { url: URL; body: unknown; headers: Headers }) => [number, unknown]
 
 export interface ApiMock {
-  calls: { method: string; path: string; body: unknown }[]
+  calls: { method: string; path: string; query: Record<string, string>; body: unknown }[]
 }
 
 /**
@@ -32,7 +32,7 @@ export function mockApi(routes: Record<string, Handler | [number, unknown]>): Ap
           : raw instanceof URLSearchParams
             ? Object.fromEntries(raw)
             : undefined
-      mock.calls.push({ method, path, body })
+      mock.calls.push({ method, path, query: Object.fromEntries(url.searchParams), body })
       const route = routes[`${method} ${path}`]
       const [status, payload] =
         typeof route === 'function'

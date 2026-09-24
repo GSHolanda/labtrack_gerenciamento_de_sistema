@@ -14,8 +14,8 @@ sistema funcionando, testado e versionado.
 | 7     | Audit trail                 | ✅ Concluída |
 | 8     | Instrument Simulator        | ✅ Concluída |
 | 9     | Frontend                    | ✅ Concluída |
-| 10    | Dashboard                   | ⏳ Próxima   |
-| 11    | Relatórios                  | Planejada    |
+| 10    | Dashboard                   | ✅ Concluída |
+| 11    | Relatórios                  | ⏳ Próxima   |
 | 12    | Testes                      | Planejada    |
 | 13    | Docker                      | Planejada    |
 | 14    | Documentação e apresentação | Planejada    |
@@ -116,9 +116,22 @@ sistema funcionando, testado e versionado.
 - 49 testes Vitest com a aplicação real e a API simulada; validação visual com
   Chromium sobre os dados de demonstração, com todos os perfis.
 
-### ETAPA 10: Dashboard
+### ETAPA 10: Dashboard ✅
 - KPIs: amostras abertas, em análise, aguardando revisão, aprovadas, reprovadas, OOS, tempo médio de processamento.
 - Gráficos: amostras por status, processadas por mês, % de aprovação, OOS por teste.
+- `GET /dashboard/summary` e `GET /dashboard/charts` com período configurável
+  (`period_days`), comparação com o período anterior, taxa de aprovação, tempo
+  médio e mediano até a decisão e OOS contando versões corrigidas.
+- Série diária, semanal ou mensal conforme o período, sem lacunas, agrupada no
+  fuso do laboratório (`LABTRACK_LAB_TIMEZONE`; `tzdata` para Windows).
+- Tela: carga atual acima do filtro; filtro de período único para indicadores
+  e gráficos; variação com seta e texto (nunca só cor); gráficos Recharts com
+  tooltip por mouse e teclado e tabela equivalente; carregamento sob demanda.
+- Cores validadas com o validador de paleta: verde × vermelho reprovado para
+  séries lado a lado (ΔE 4,1 em deuteranopia); aprovadas e reprovadas em azul
+  e laranja (ΔE 24,7); vermelho de status só para OOS, com ícone e rótulo.
+- Testes: domínio (janelas, fuso na virada do mês, taxas, tempos), API com
+  cenário controlado e com os dados de demonstração, e Vitest da tela.
 
 ### ETAPA 11: Relatórios
 - Relatório da amostra (JSON + PDF): código, produto, lote, recebimento, testes, resultados, limites, status, analista, revisor, data de aprovação.

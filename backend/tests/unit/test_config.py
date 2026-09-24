@@ -23,3 +23,12 @@ def test_invalid_environment_is_rejected(monkeypatch: pytest.MonkeyPatch) -> Non
 
     with pytest.raises(ValidationError):
         Settings(_env_file=None)
+
+
+def test_lab_timezone_is_validated(monkeypatch: pytest.MonkeyPatch) -> None:
+    assert Settings(_env_file=None).lab_timezone == "America/Sao_Paulo"
+    monkeypatch.setenv("LABTRACK_LAB_TIMEZONE", "Europe/Lisbon")
+    assert Settings(_env_file=None).lab_timezone == "Europe/Lisbon"
+    monkeypatch.setenv("LABTRACK_LAB_TIMEZONE", "Marte/Olympus")
+    with pytest.raises(ValidationError, match="Fuso horário desconhecido"):
+        Settings(_env_file=None)

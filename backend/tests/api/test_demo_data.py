@@ -217,3 +217,39 @@ def test_cli_refuses_demo_data_in_production(monkeypatch: pytest.MonkeyPatch) ->
     monkeypatch.setattr(cli, "get_settings", lambda: production)
     with pytest.raises(SystemExit, match="produção"):
         cli.main(["seed-demo"])
+
+
+def test_demo_feeds_the_dashboard(demo: tuple[Session, DemoSummary], client: TestClient) -> None:
+    token = client.post(
+        f"{API}/auth/login", data={"username": "marcos.lima", "password": PASSWORD}
+    ).json()["access_token"]
+    headers = {"Authorization": f"Bearer {token}"}
+
+    summary = client.get(
+        f"{API}/dashboard/summary", headers=headers, params={"period_days": 90}
+    ).json()
+    assert summary["workload"] == {
+        "open": 7,
+        "received": 1,
+        "in_analysis": 3,
+        "awaiting_review": 3,
+        "open_with_oos": 1,
+        "urgent_open": 1,
+    }
+    current = summary["current"]
+    assert (current["approved"], current["rejected"], current["cancelled"]) == (10, 2, 1)
+    assert current["approval_rate"] == pytest.approx(10 / 12, abs=1e-4)
+    assert current["average_processing_hours"] > 24  # decisão no dia seguinte ou depois
+    assert (current["oos_results"], current["samples_with_oos"]) == (5, 5)
+
+    charts = client.get(
+        f"{API}/dashboard/charts", headers=headers, params={"period_days": 90}
+    ).json()
+    assert charts["granularity"] == "week"
+    assert sum(point["approved"] for point in charts["throughput"]) == 10
+    assert {item["test_code"] for item in charts["oos_by_test"] if item["oos"]} == {
+        "PH",
+        "ASSAY",
+        "MOISTURE",
+        "AVG_WEIGHT",
+    }

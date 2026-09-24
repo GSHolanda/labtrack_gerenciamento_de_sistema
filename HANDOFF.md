@@ -24,7 +24,8 @@ Leia primeiro: `docs/architecture.md`, `docs/database.md`, `docs/api.md`,
 | 7 Audit trail e Sample Timeline (API) | ✅ concluída e validada |
 | 8 Instrumentos, integração REST, simulador e demonstração | ✅ concluída e validada |
 | 9 Frontend (todas as áreas do menu, timeline visual) | ✅ concluída e validada |
-| 10 a 14 | pendentes (ver `docs/roadmap.md`) |
+| 10 Dashboard (indicadores, séries, gráficos acessíveis) | ✅ concluída e validada |
+| 11 a 14 | pendentes (ver `docs/roadmap.md`) |
 
 ## ETAPA 6: entrega concluída
 - `app/domain/specification.py::evaluate()` (OOS, limites inclusivos, Decimal) + testes unitários.
@@ -133,15 +134,53 @@ Leia primeiro: `docs/architecture.md`, `docs/database.md`, `docs/api.md`,
   senha errada recusada → aprovação; cancelamento pelo gestor; chave de
   equipamento; plano analítico. Sem erros de console além do 422 esperado da senha errada.
 
-### Próximos passos: ETAPA 10 (dashboard)
-1. Endpoints `GET /dashboard/summary` (abertas, em análise, aguardando revisão,
-   aprovadas, reprovadas, OOS, tempo médio de processamento) e
-   `GET /dashboard/charts` (por status, processadas por mês, % de aprovação, OOS por
-   teste), com `DASHBOARD_VIEW`, consultas agregadas e testes.
-2. Substituir o dashboard básico (`features/dashboard/DashboardPage.tsx`, hoje com
-   uma consulta por status) pelos KPIs do endpoint e gráficos com Recharts.
-3. Os dados de demonstração já cobrem cerca de 50 dias com datas coerentes
-   (`received_at`, `completed_at`, `created_at`), suficientes para as séries mensais.
+## ETAPA 10: entrega concluída
+- Backend: `app/domain/dashboard.py` (granularidade dia ≤31 / semana ≤120 / mês
+  conforme `period_days`; janelas semiabertas em UTC; `bucket_of` agrupa no fuso
+  do laboratório, semana começando na segunda; `buckets_for` sem lacunas; taxa de
+  aprovação; média e mediana do tempo até a decisão).
+- `repositories/dashboard_repository.py`: contagens por status, urgentes em
+  aberto, amostras abertas com resultado vigente OOS (teste não cancelado),
+  concluídas no período, totais OOS (todas as versões, inclusive corrigidas) e
+  resultados por teste; tudo com consultas agregadas.
+- `services/dashboard_service.py` + `schemas/dashboard.py` +
+  `api/v1/endpoints/dashboard.py`: `GET /dashboard/summary` (carga atual, totais do
+  período e do período anterior) e `GET /dashboard/charts` (decisões e taxa por
+  intervalo, amostras por status, OOS por teste), com `DASHBOARD_VIEW` e
+  `period_days` 1–366 (padrão 30). Leitura não gera audit.
+- Configuração `LABTRACK_LAB_TIMEZONE` (padrão `America/Sao_Paulo`, validada) e
+  dependência `tzdata` para o Windows.
+- Frontend: `features/dashboard/` com seção "Agora" (carga atual com links para a
+  lista filtrada), filtro de período único na URL (`?period=7|30|90|365`, padrão
+  90) acima de indicadores e gráficos, `StatTile` com variação contra o período
+  anterior (seta + texto + "melhora/piora" para leitor de tela), `ChartCard`
+  (legenda só com ≥2 séries, botão "Tabela" com os mesmos valores) e
+  `DashboardCharts.tsx` com Recharts carregado sob demanda (`lazy`).
+- Gráficos: decisões por intervalo (colunas empilhadas, 2px de espaço, ponta
+  arredondada, ≤24px), taxa de aprovação (linha 0–100%, sem ligar intervalos sem
+  decisão), amostras por status e OOS por teste (barras horizontais com rótulo na
+  ponta). Nenhum eixo duplo; tooltip por mouse e por teclado (setas).
+- Cores em `chartTheme.ts`, conferidas com o validador de paleta: azul `#2a78d6` ×
+  laranja `#eb6834` passa (verde × vermelho foi reprovado para daltonismo); o
+  vermelho de status `#d03b3b` só aparece em OOS, sempre com ícone e rótulo.
+- Testes: domínio (fuso na virada do mês, buckets sem lacuna, 13 meses em 365
+  dias), API (permissões dos 4 perfis, 401, 422, cenário completo, OOS corrigido,
+  granularidade, sem audit), demonstração alimentando o dashboard, formatação e
+  página no Vitest (período na URL, tabelas, aviso sem decisões).
+
+### Próximos passos: ETAPA 11 (relatórios)
+1. `GET /reports/samples/{id}` (JSON) e `GET /reports/samples/{id}/pdf` com
+   `REPORT_EXPORT`: código, cliente, produto, lote, recebimento, testes,
+   resultados vigentes (e se houve correção), limites, status OOS, analista,
+   revisor e data de aprovação/reprovação. Definir se o relatório só sai para
+   amostras finalizadas (APPROVED/REJECTED) e documentar a regra.
+2. Registrar `REPORT_GENERATED` (já existe em `domain/audit.py`) na mesma
+   transação, sem dados sensíveis; gerar o PDF no backend (ex.: ReportLab ou
+   WeasyPrint; preferir dependência sem binários de sistema, pensando no Windows
+   e no Docker da ETAPA 13).
+3. Trocar o placeholder `frontend/src/features/reports/ReportsPage.tsx` (hoje lista
+   amostras finalizadas) por prévia do relatório e download do PDF; botão também
+   no detalhe da amostra para quem tem `REPORT_EXPORT`.
 
 ## Como rodar
 ```bash
@@ -158,10 +197,14 @@ python -m simulator run --once   # com a API rodando e config.json gerado
 cd ../frontend && npm install && npm run dev   # http://localhost:5173, proxy /api → :8000
 npm test && npm run lint && npm run build
 ```
-Validação da ETAPA 9: backend **394 testes passando, nenhum pulado** (inclui os
-5 de PostgreSQL 16 real), simulador **41**, frontend **49** (Vitest), Ruff,
-oxlint, `tsc` e `vite build` limpos. A interface foi percorrida no Chromium com
-todos os perfis sobre a demonstração gerada no PostgreSQL. Os testes de API usam
+Validação da ETAPA 10: backend **425 testes passando, nenhum pulado** (inclui os
+de PostgreSQL 16 real), simulador **41**, frontend **63** (Vitest), Ruff,
+oxlint, `tsc` e `vite build` limpos (Recharts fica num chunk separado,
+`DashboardCharts-*.js`, baixado só ao abrir o dashboard). O dashboard foi
+conferido no Chromium sobre a demonstração no PostgreSQL (7/30/90 dias e 12
+meses, tabela equivalente, tooltip por mouse e teclado, largura de celular), sem
+erros de console: 10 aprovadas, 2 reprovadas, taxa 83,3%, tempo médio ~2 d 3 h,
+5 resultados OOS e 1 amostra em aberto com OOS vigente. Os testes de API usam
 SQLite em memória; ele não preserva o fuso das datas, por isso as comparações
 normalizam UTC.
 

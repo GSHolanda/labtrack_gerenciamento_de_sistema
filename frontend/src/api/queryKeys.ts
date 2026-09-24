@@ -21,4 +21,6 @@ export const queryKeys = {
   users: (filters: object) => ['users', filters] as const,
   roles: ['roles'] as const,
   dashboard: ['dashboard'] as const,
+  dashboardSummary: (days: number) => ['dashboard', 'summary', days] as const,
+  dashboardCharts: (days: number) => ['dashboard', 'charts', days] as const,
 }

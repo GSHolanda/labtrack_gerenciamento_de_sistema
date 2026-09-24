@@ -9,6 +9,7 @@ from fastapi import APIRouter
 from app.api.v1.endpoints import (
     audit,
     auth,
+    dashboard,
     health,
     instruments,
     master_data,
@@ -27,3 +28,4 @@ api_router.include_router(results.router)
 api_router.include_router(instruments.integration_router)
 api_router.include_router(instruments.router)
 api_router.include_router(audit.router)
+api_router.include_router(dashboard.router)

@@ -8,7 +8,7 @@ interface mostra o que o perfil pode fazer, mas quem autoriza é sempre a API.
 
 | Menu           | Rota                   | Quem vê                        | O que faz |
 | -------------- | ---------------------- | ------------------------------ | --------- |
-| Dashboard      | `/dashboard`           | todos                          | Contagem por status (atalhos para a lista filtrada), resultados OOS vigentes e fila do perfil (revisão para o revisor, amostras sob responsabilidade para o analista). Os KPIs e gráficos completos chegam na ETAPA 10. |
+| Dashboard      | `/dashboard`           | todos                          | Carga atual (em aberto, em análise, em revisão, com OOS vigente, urgentes), filtro de período (7/30/90 dias, 12 meses) que vale para tudo abaixo dele, indicadores com variação contra o período anterior, gráficos de decisões, taxa de aprovação, status e OOS por teste (cada um com tabela equivalente) e a fila do perfil. |
 | Amostras       | `/samples`             | `SAMPLE_READ`                  | Pesquisa com filtros na URL, ordenação, progresso dos testes e alerta OOS; registro de amostra com prévia do plano analítico. |
 |                | `/samples/:id`         | `SAMPLE_READ`                  | Dados da amostra, ações do workflow conforme status e permissão, testes com especificação, resultado vigente, origem (usuário ou equipamento), histórico de versões, lançamento e correção, atribuição e cancelamento de testes, e a **Sample Timeline** visual. |
 | Testes         | `/tests`               | todos                          | Catálogo de tipos de teste; o administrador cria e altera. |
@@ -62,6 +62,14 @@ src/
 - **Datas**: a API trabalha em UTC; a interface mostra no fuso do navegador.
 - **Sem biblioteca de componentes**: CSS próprio com tokens, para manter o
   bundle pequeno e o visual consistente.
+- **Gráficos** (Recharts, carregado só ao abrir o dashboard): nenhum eixo duplo;
+  série única sem legenda e duas séries com legenda; colunas de até 24px com
+  ponta arredondada e 2px de espaço entre segmentos; linhas de 2px; grade
+  discreta. Cores da paleta de referência validadas contra a superfície branca
+  (azul × laranja passa; verde × vermelho foi reprovado para daltonismo). O
+  vermelho de status aparece só em OOS, sempre com ícone e rótulo. Todo gráfico
+  tem tooltip (mouse e teclado) e tabela com os mesmos valores. Variações usam
+  seta e texto ("piora"/"melhora" para leitores de tela), não só cor.
 
 ## Executando
 

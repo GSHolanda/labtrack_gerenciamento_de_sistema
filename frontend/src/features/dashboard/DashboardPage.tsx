@@ -1,163 +1,208 @@
-import { useQueries, useQuery } from '@tanstack/react-query'
-import { TriangleAlert } from 'lucide-react'
-import { Link } from 'react-router'
+import { keepPreviousData, useQuery } from '@tanstack/react-query'
+import { Check, Clock, TriangleAlert } from 'lucide-react'
+import { Suspense, lazy } from 'react'
+import { useSearchParams } from 'react-router'
 
+import { dashboardApi } from '../../api/dashboard'
 import { queryKeys } from '../../api/queryKeys'
-import { resultsApi, samplesApi } from '../../api/samples'
-import { PriorityBadge, SampleStatusBadge } from '../../components/Badge'
-import { PageHeader, Panel } from '../../components/PageHeader'
-import { EmptyState, ErrorState, LoadingState } from '../../components/States'
+import { PageHeader } from '../../components/PageHeader'
+import { ErrorState, LoadingState } from '../../components/States'
 import { formatDateTime } from '../../lib/format'
-import { SAMPLE_STATUS, SAMPLE_STATUSES } from '../../lib/labels'
-import type { SampleFilters } from '../../api/samples'
+import type { DashboardSummary } from '../../types/api'
 import { useAuth } from '../auth/authContext'
+import { FocusList } from './FocusList'
+import { StatTile } from './StatTile'
+import { delta, formatCount, formatHours, formatPercent } from './dashboardFormat'
+import { worklistFor } from './worklist'
 
-/**
- * Visão geral da ETAPA 9, montada com as consultas já existentes. Os KPIs completos
- * (tempo médio, séries mensais, gráficos) chegam com o endpoint da ETAPA 10.
- */
+// Recharts só é baixado quando o dashboard abre (a tela de login não paga por ele).
+const DashboardCharts = lazy(() => import('./DashboardCharts'))
+
+const PERIODS = [
+  { days: 7, label: '7 dias', comparison: 'vs. 7 dias anteriores' },
+  { days: 30, label: '30 dias', comparison: 'vs. 30 dias anteriores' },
+  { days: 90, label: '90 dias', comparison: 'vs. 90 dias anteriores' },
+  { days: 365, label: '12 meses', comparison: 'vs. 12 meses anteriores' },
+] as const
+const DEFAULT_DAYS = 90
+
+const OPEN_LINK = '/samples?status=RECEIVED&status=IN_ANALYSIS&status=AWAITING_REVIEW'
+
 export function DashboardPage() {
   const { user, can } = useAuth()
-  const counts = useQueries({
-    queries: SAMPLE_STATUSES.map((status) => ({
-      queryKey: [...queryKeys.dashboard, 'status', status],
-      queryFn: () => samplesApi.search({ status: [status], size: 1 }),
-      select: (page: { total: number }) => page.total,
-    })),
-  })
-  const oos = useQuery({
-    queryKey: [...queryKeys.dashboard, 'oos'],
-    queryFn: () => resultsApi.search({ spec_status: 'OOS', size: 1 }),
-    select: (page) => page.total,
-  })
+  const [params, setParams] = useSearchParams()
+  const period = PERIODS.find((item) => String(item.days) === params.get('period'))
+    ?? PERIODS.find((item) => item.days === DEFAULT_DAYS)!
 
+  const summary = useQuery({
+    queryKey: queryKeys.dashboardSummary(period.days),
+    queryFn: () => dashboardApi.summary(period.days),
+    placeholderData: keepPreviousData,
+  })
+  const charts = useQuery({
+    queryKey: queryKeys.dashboardCharts(period.days),
+    queryFn: () => dashboardApi.charts(period.days),
+    placeholderData: keepPreviousData,
+  })
   const focus = worklistFor(user?.id, can('SAMPLE_REVIEW'), can('SAMPLE_ANALYZE'))
 
   return (
     <>
       <PageHeader
         title={`Olá, ${user?.full_name.split(' ')[0] ?? ''}`}
-        subtitle="Situação atual das amostras do laboratório."
+        subtitle={
+          summary.data
+            ? `Indicadores do laboratório, atualizados em ${formatDateTime(summary.data.generated_at)}.`
+            : 'Indicadores do laboratório.'
+        }
       />
-      <div className="kpi-grid">
-        {SAMPLE_STATUSES.map((status, index) => (
-          <Link
-            key={status}
-            to={`/samples?status=${status}`}
-            className={`kpi kpi--${SAMPLE_STATUS[status].tone}`}
-          >
-            <span>{SAMPLE_STATUS[status].label}</span>
-            <strong>{counts[index].data ?? '—'}</strong>
-          </Link>
-        ))}
-        <Link to="/results?spec_status=OOS" className="kpi kpi--danger">
-          <span className="with-icon">
-            <TriangleAlert aria-hidden /> Resultados OOS vigentes
-          </span>
-          <strong>{oos.data ?? '—'}</strong>
-        </Link>
+
+      {summary.isPending ? (
+        <LoadingState />
+      ) : summary.isError ? (
+        <ErrorState error={summary.error} onRetry={() => summary.refetch()} />
+      ) : (
+        <Workload summary={summary.data} />
+      )}
+
+      <div className="period-bar" role="group" aria-label="Período dos indicadores e gráficos">
+        <span className="period-bar__label">Período</span>
+        <div className="segmented">
+          {PERIODS.map((item) => (
+            <button
+              key={item.days}
+              type="button"
+              className={item.days === period.days ? 'segmented__option is-active' : 'segmented__option'}
+              aria-pressed={item.days === period.days}
+              onClick={() => setParams({ period: String(item.days) }, { replace: true })}
+            >
+              {item.days === period.days && <Check aria-hidden />}
+              {item.label}
+            </button>
+          ))}
+        </div>
+        <span className="period-bar__note">
+          Tudo abaixo considera os últimos {period.label} até agora, no fuso do laboratório.
+        </span>
       </div>
-      {focus && <FocusList title={focus.title} filters={focus.filters} link={focus.link} />}
+
+      <div className={summary.isPlaceholderData || charts.isPlaceholderData ? 'is-refreshing' : undefined}>
+        {summary.data && (
+          <PeriodTiles summary={summary.data} comparison={period.comparison} />
+        )}
+        {charts.isPending ? (
+          <LoadingState label="Carregando gráficos…" />
+        ) : charts.isError ? (
+          <ErrorState error={charts.error} onRetry={() => charts.refetch()} />
+        ) : (
+          <Suspense fallback={<LoadingState label="Carregando gráficos…" />}>
+            <DashboardCharts charts={charts.data} />
+          </Suspense>
+        )}
+      </div>
+
+      <FocusList title={focus.title} filters={focus.filters} link={focus.link} />
     </>
   )
 }
 
-function worklistFor(userId: number | undefined, reviewer: boolean, analyst: boolean) {
-  if (reviewer)
-    return {
-      title: 'Aguardando sua revisão',
-      filters: { status: ['AWAITING_REVIEW'], sort: 'received_at', size: 8 } as SampleFilters,
-      link: '/samples?status=AWAITING_REVIEW',
-    }
-  if (analyst && userId)
-    return {
-      title: 'Suas amostras em andamento',
-      filters: {
-        status: ['RECEIVED', 'IN_ANALYSIS'],
-        responsible_id: userId,
-        sort: '-priority',
-        size: 8,
-      } as SampleFilters,
-      link: '/samples?status=RECEIVED&status=IN_ANALYSIS&mine=1',
-    }
-  return {
-    title: 'Recebidas recentemente',
-    filters: { sort: '-received_at', size: 8 } as SampleFilters,
-    link: '/samples',
-  }
+function Workload({ summary }: { summary: DashboardSummary }) {
+  const workload = summary.workload
+  return (
+    <section className="dashboard-section" aria-labelledby="agora">
+      <h2 id="agora" className="section-title">
+        Agora
+      </h2>
+      <div className="stat-grid">
+        <StatTile label="Em aberto" value={formatCount(workload.open)} to={OPEN_LINK} />
+        <StatTile
+          label="Aguardando início"
+          value={formatCount(workload.received)}
+          to="/samples?status=RECEIVED"
+        />
+        <StatTile
+          label="Em análise"
+          value={formatCount(workload.in_analysis)}
+          to="/samples?status=IN_ANALYSIS"
+        />
+        <StatTile
+          label="Aguardando revisão"
+          value={formatCount(workload.awaiting_review)}
+          to="/samples?status=AWAITING_REVIEW"
+        />
+        <StatTile
+          label="Em aberto com OOS vigente"
+          value={formatCount(workload.open_with_oos)}
+          hint="Bloqueiam a aprovação"
+          alert={workload.open_with_oos > 0}
+          icon={workload.open_with_oos > 0 ? <TriangleAlert aria-hidden /> : undefined}
+        />
+        <StatTile
+          label="Urgentes em aberto"
+          value={formatCount(workload.urgent_open)}
+          to={`${OPEN_LINK}&priority=URGENT`}
+        />
+      </div>
+    </section>
+  )
 }
 
-function FocusList({
-  title,
-  filters,
-  link,
-}: {
-  title: string
-  filters: SampleFilters
-  link: string
-}) {
-  const query = useQuery({
-    queryKey: [...queryKeys.dashboard, 'focus', filters],
-    queryFn: () => samplesApi.search(filters),
-  })
+function PeriodTiles({ summary, comparison }: { summary: DashboardSummary; comparison: string }) {
+  const { current, previous } = summary
   return (
-    <Panel
-      title={title}
-      actions={
-        <Link to={link} className="small-link">
-          Ver todas
-        </Link>
-      }
-    >
-      {query.isPending ? (
-        <LoadingState />
-      ) : query.isError ? (
-        <ErrorState error={query.error} />
-      ) : query.data.items.length === 0 ? (
-        <EmptyState title="Nada pendente por aqui" />
-      ) : (
-        <div className="table-wrapper">
-          <table className="table">
-            <thead>
-              <tr>
-                <th>Amostra</th>
-                <th>Produto</th>
-                <th>Recebida em</th>
-                <th>Prioridade</th>
-                <th>Status</th>
-                <th>Testes</th>
-              </tr>
-            </thead>
-            <tbody>
-              {query.data.items.map((sample) => (
-                <tr key={sample.id}>
-                  <td>
-                    <Link to={`/samples/${sample.id}`} className="code-link">
-                      {sample.sample_code}
-                    </Link>
-                    {sample.has_oos && (
-                      <span className="oos-flag">
-                        <TriangleAlert aria-hidden /> OOS
-                      </span>
-                    )}
-                  </td>
-                  <td>{sample.product.name}</td>
-                  <td className="nowrap">{formatDateTime(sample.received_at)}</td>
-                  <td>
-                    <PriorityBadge priority={sample.priority} />
-                  </td>
-                  <td>
-                    <SampleStatusBadge status={sample.status} />
-                  </td>
-                  <td>
-                    {sample.tests_completed}/{sample.tests_total}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-    </Panel>
+    <section className="dashboard-section" aria-label="Indicadores do período">
+      <div className="stat-grid">
+        <StatTile
+          label="Recebidas"
+          value={formatCount(current.received)}
+          delta={delta(current.received, previous.received, 'none')}
+          comparison={comparison}
+        />
+        <StatTile
+          label="Aprovadas"
+          value={formatCount(current.approved)}
+          delta={delta(current.approved, previous.approved, 'up')}
+          comparison={comparison}
+        />
+        <StatTile
+          label="Reprovadas"
+          value={formatCount(current.rejected)}
+          delta={delta(current.rejected, previous.rejected, 'down')}
+          comparison={comparison}
+        />
+        <StatTile
+          label="Taxa de aprovação"
+          value={formatPercent(current.approval_rate)}
+          delta={delta(current.approval_rate, previous.approval_rate, 'up', 'rate')}
+          comparison={comparison}
+          hint="Aprovadas sobre decididas (sem canceladas)"
+        />
+        <StatTile
+          label="Tempo até a decisão"
+          icon={<Clock aria-hidden />}
+          value={formatHours(current.average_processing_hours)}
+          delta={delta(
+            current.average_processing_hours,
+            previous.average_processing_hours,
+            'down',
+            'hours',
+          )}
+          comparison={comparison}
+          hint={
+            current.median_processing_hours === null
+              ? 'Média do recebimento à aprovação ou reprovação'
+              : `Média; mediana ${formatHours(current.median_processing_hours)}`
+          }
+        />
+        <StatTile
+          label="Resultados OOS"
+          value={formatCount(current.oos_results)}
+          delta={delta(current.oos_results, previous.oos_results, 'down')}
+          comparison={comparison}
+          hint={`Em ${formatCount(current.samples_with_oos)} amostra(s), inclusive os corrigidos`}
+          to="/results?spec_status=OOS&history=1"
+        />
+      </div>
+    </section>
   )
 }

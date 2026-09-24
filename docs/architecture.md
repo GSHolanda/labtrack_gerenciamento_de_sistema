@@ -125,6 +125,9 @@ Implementado na ETAPA 9 (detalhes em [`frontend/README.md`](../frontend/README.m
 - **Dados**: TanStack Query; cada operação atualiza o detalhe com a resposta da
   API e invalida listas, timeline e dashboard. Filtros e paginação ficam na URL.
 - **Valores analíticos** tratados como texto decimal na interface inteira.
+- **Dashboard** (ETAPA 10): indicadores e séries calculados no backend
+  (`DashboardService`); a tela usa Recharts carregado sob demanda, com tabela
+  equivalente para cada gráfico e cores validadas para daltonismo.
 
 ## 4. Instrument Simulator
 
@@ -169,7 +172,7 @@ fixá-lo.
 | **Erros**               | Exceções de aplicação (`NotFound`, `BusinessRuleError`, `PermissionDenied`...) convertidas por um handler global em JSON padronizado |
 | **Logs**                | Texto em desenvolvimento, JSON em produção, com `request_id` para correlação                                                  |
 | **Validação**           | Pydantic na borda (formato) + regras de negócio nos serviços/domínio + constraints no banco (defesa em profundidade)           |
-| **Datas**               | Armazenadas em UTC (`TIMESTAMPTZ`); convertidas para o fuso do usuário na interface. Eventos de negócio usam o relógio da aplicação (`core/clock.py`) |
+| **Datas**               | Armazenadas em UTC (`TIMESTAMPTZ`); convertidas para o fuso do usuário na interface. Eventos de negócio usam o relógio da aplicação (`core/clock.py`); indicadores agrupam dias e meses no fuso do laboratório (`LABTRACK_LAB_TIMEZONE`) |
 | **Concorrência**        | *Optimistic locking* (coluna `version`) em amostras para evitar que duas pessoas sobrescrevam alterações                       |
 | **Documentação da API** | OpenAPI/Swagger gerado automaticamente em `/docs`                                                                              |
 

@@ -6,7 +6,7 @@ total, regras de negócio de um ambiente regulado, integração com instrumentos
 e audit trail imutável.
 
 > 🚧 **Em desenvolvimento.** O projeto é construído em 14 etapas incrementais.
-> Veja o [plano de implementação](docs/roadmap.md). Etapa atual: **9 de 14 concluídas**.
+> Veja o [plano de implementação](docs/roadmap.md). Etapa atual: **10 de 14 concluídas**.
 
 ---
 
@@ -110,8 +110,12 @@ Timeline visual), resultados com filtro OOS, catálogo de testes, equipamentos
 com chave exibida uma única vez, audit trail com verificação de integridade,
 administração e um dashboard básico. Veja o [README do frontend](frontend/README.md).
 
-A próxima entrega é o dashboard completo (ETAPA 10), seguido do relatório em PDF
-(ETAPA 11).
+A ETAPA 10 entrega o dashboard: carga de trabalho atual, indicadores do período
+com comparação ao período anterior (aprovadas, reprovadas, taxa de aprovação,
+tempo até a decisão, resultados OOS) e gráficos de decisões, taxa de aprovação,
+status e OOS por teste, agrupados no fuso do laboratório.
+
+A próxima entrega é o relatório da amostra em JSON e PDF (ETAPA 11).
 
 **Backend**
 
