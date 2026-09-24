@@ -178,3 +178,9 @@ class SpecificationRead(BaseModel):
     spec_min: Decimal | None = Field(description="Limite efetivo para o produto")
     spec_max: Decimal | None = Field(description="Limite efetivo para o produto")
     overrides_default: bool
+    product_spec_min: Decimal | None = Field(
+        default=None, description="Limite mínimo próprio do produto (vazio: vale o padrão)"
+    )
+    product_spec_max: Decimal | None = Field(
+        default=None, description="Limite máximo próprio do produto (vazio: vale o padrão)"
+    )

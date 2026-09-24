@@ -15,6 +15,7 @@ S = SampleStatus
 A = SampleAction
 
 
+@pytest.mark.rules("RN-15")
 @pytest.mark.parametrize(
     ("current", "action", "expected"),
     [
@@ -32,6 +33,7 @@ def test_documented_transitions(current: S, action: A, expected: S) -> None:
     assert next_status(current, action) == expected
 
 
+@pytest.mark.rules("RN-15")
 def test_every_other_combination_is_rejected() -> None:
     for status in SampleStatus:
         for action in SampleAction:
@@ -42,6 +44,7 @@ def test_every_other_combination_is_rejected() -> None:
             assert error.value.code == "INVALID_STATUS_TRANSITION"
 
 
+@pytest.mark.rules("RN-08", "RN-12")
 @pytest.mark.parametrize(
     ("current", "action"),
     [
@@ -58,15 +61,18 @@ def test_forbidden_shortcuts(current: S, action: A) -> None:
         next_status(current, action)
 
 
+@pytest.mark.rules("RN-14")
 @pytest.mark.parametrize("final", [S.APPROVED, S.REJECTED, S.CANCELLED])
 def test_final_statuses_allow_no_action(final: S) -> None:
     assert allowed_actions(final) == []
 
 
+@pytest.mark.rules("RN-13")
 def test_reason_required_for_negative_actions() -> None:
     assert {A.REJECT, A.RETURN_TO_ANALYSIS, A.CANCEL} == ACTIONS_REQUIRING_REASON
 
 
+@pytest.mark.rules("RN-05", "RN-14")
 @pytest.mark.parametrize("status", [S.AWAITING_REVIEW, S.APPROVED, S.REJECTED, S.CANCELLED])
 def test_sample_is_locked_outside_editable_statuses(status: S) -> None:
     with pytest.raises(ConflictError) as error:

@@ -1,0 +1,12 @@
+# Só o necessário para a imagem: pyproject, README, app/, alembic/ e scripts/.
+.venv/
+**/__pycache__/
+**/*.py[cod]
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+tests/
+.env
+.env.*

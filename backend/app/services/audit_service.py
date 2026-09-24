@@ -11,6 +11,7 @@ from typing import Any
 
 from sqlalchemy.orm import Session
 
+from app.core.clock import utcnow
 from app.core.exceptions import BusinessRuleError, NotFoundError
 from app.core.request_context import get_request_id
 from app.domain.audit import (
@@ -85,7 +86,7 @@ class AuditService:
         ip_address: str | None = None,
     ) -> AuditLog:
         fields: dict[str, Any] = {
-            "occurred_at": datetime.now(UTC),
+            "occurred_at": utcnow(),
             "actor_type": actor.type,
             "user_id": actor.user_id,
             "instrument_id": actor.instrument_id,

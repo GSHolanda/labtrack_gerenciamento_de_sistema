@@ -27,6 +27,7 @@ def _action(lab: Lab, sample_id: int, action: str, headers: dict[str, str], json
 # --- Registro -----------------------------------------------------------------
 
 
+@pytest.mark.rules("RN-01")
 def test_register_generates_sequential_code_per_year(lab: Lab) -> None:
     year = datetime.now(UTC).year
     first = lab.create_sample()
@@ -37,6 +38,7 @@ def test_register_generates_sequential_code_per_year(lab: Lab) -> None:
     assert first["status"] == "RECEIVED"
 
 
+@pytest.mark.rules("RN-01")
 def test_code_sequence_restarts_each_year(lab: Lab) -> None:
     lab.create_sample()
     last_year = lab.create_sample(received_at="2025-06-01T10:00:00+00:00")
@@ -44,6 +46,7 @@ def test_code_sequence_restarts_each_year(lab: Lab) -> None:
     assert last_year["sample_code"] == "SMP-2025-0001"
 
 
+@pytest.mark.rules("RN-04", "RN-06")
 def test_product_plan_is_assigned_with_limit_snapshot(lab: Lab) -> None:
     sample = lab.create_sample()
 
@@ -55,6 +58,7 @@ def test_product_plan_is_assigned_with_limit_snapshot(lab: Lab) -> None:
     assert sample["allowed_actions"] == ["start_analysis", "cancel"]
 
 
+@pytest.mark.rules("RN-06")
 def test_later_limit_change_does_not_affect_existing_sample(lab: Lab) -> None:
     sample = lab.create_sample()
     lab.client.patch(
@@ -72,6 +76,7 @@ def test_registration_is_audited(lab: Lab, db: Session) -> None:
     assert _audit_actions(db, sample["id"]) == ["SAMPLE_CREATED", "TESTS_ASSIGNED"]
 
 
+@pytest.mark.rules("RN-02", "RN-03")
 @pytest.mark.parametrize(
     ("override", "code"),
     [
@@ -100,6 +105,7 @@ def test_registration_rules(lab: Lab, override: dict[str, object], code: str) ->
     assert response.json()["error"]["code"] == code
 
 
+@pytest.mark.rules("RN-02")
 def test_inactive_product_cannot_receive_samples(lab: Lab) -> None:
     lab.client.patch(
         f"{API}/products/{lab.product_id}", json={"is_active": False}, headers=lab.admin
@@ -150,6 +156,7 @@ def test_only_analysts_register_samples(lab: Lab, role: str) -> None:
 # --- Testes atribuídos --------------------------------------------------------
 
 
+@pytest.mark.rules("RN-05")
 def test_assign_additional_test(lab: Lab, db: Session) -> None:
     sample = lab.create_sample()
     response = lab.post(
@@ -162,6 +169,7 @@ def test_assign_additional_test(lab: Lab, db: Session) -> None:
     assert {t["test_code"] for t in response.json()["tests"]} == {"PH", "DENSITY", "MOISTURE"}
 
 
+@pytest.mark.rules("RN-05")
 def test_same_test_cannot_be_assigned_twice(lab: Lab) -> None:
     sample = lab.create_sample()
     response = lab.post(
@@ -172,6 +180,7 @@ def test_same_test_cannot_be_assigned_twice(lab: Lab) -> None:
     assert response.json()["error"]["details"]["tests"] == ["PH"]
 
 
+@pytest.mark.rules("RN-07")
 def test_cancel_pending_test_requires_reason(lab: Lab, db: Session) -> None:
     sample = lab.create_sample()
     test_id = sample["tests"][0]["id"]
@@ -195,6 +204,7 @@ def test_cancel_pending_test_requires_reason(lab: Lab, db: Session) -> None:
 # --- Workflow -----------------------------------------------------------------
 
 
+@pytest.mark.rules("RN-08")
 def test_analysis_requires_assigned_tests(lab: Lab) -> None:
     lab.client.put(f"{API}/products/{lab.product_id}/specifications", json=[], headers=lab.admin)
     sample = lab.create_sample()
@@ -204,6 +214,7 @@ def test_analysis_requires_assigned_tests(lab: Lab) -> None:
     assert response.json()["error"]["code"] == "NO_TESTS_ASSIGNED"
 
 
+@pytest.mark.rules("RN-10", "RN-15")
 def test_full_flow_until_review_with_history(lab: Lab, db: Session) -> None:
     sample = lab.create_sample()
 
@@ -233,6 +244,7 @@ def test_full_flow_until_review_with_history(lab: Lab, db: Session) -> None:
     assert _audit_actions(db, sample["id"]).count("SAMPLE_STATUS_CHANGED") == 2
 
 
+@pytest.mark.rules("RN-05", "RN-11")
 def test_sample_is_locked_while_awaiting_review(lab: Lab, db: Session) -> None:
     sample = lab.create_sample()
     lab.analyze(sample)
@@ -252,6 +264,7 @@ def test_sample_is_locked_while_awaiting_review(lab: Lab, db: Session) -> None:
     assert assign.json()["error"]["code"] == "SAMPLE_NOT_EDITABLE"
 
 
+@pytest.mark.rules("RN-15")
 def test_invalid_transition_is_rejected(lab: Lab) -> None:
     sample = lab.create_sample()
     _action(lab, sample["id"], "start-analysis", lab.analyst)
@@ -261,6 +274,7 @@ def test_invalid_transition_is_rejected(lab: Lab) -> None:
     assert response.json()["error"]["code"] == "INVALID_STATUS_TRANSITION"
 
 
+@pytest.mark.rules("RN-13")
 def test_cancellation_is_managerial_and_requires_reason(lab: Lab, db: Session) -> None:
     sample = lab.create_sample()
 
@@ -343,6 +357,51 @@ def test_search_filters(lab: Lab) -> None:
     assert search(received_from=tomorrow) == []
 
 
+@pytest.mark.rules("RN-18")
+def test_search_reports_progress_and_current_oos(lab: Lab) -> None:
+    sample = lab.create_sample()
+    _action(lab, sample["id"], "start-analysis", lab.analyst)
+    assert lab.enter(sample, "PH", "8.0").status_code == 201  # OOS (produto: 5.5 a 7.0)
+
+    def summary() -> dict[str, object]:
+        response = lab.client.get(f"{API}/samples", headers=lab.analyst)
+        item = response.json()["items"][0]
+        return {key: item[key] for key in ("tests_total", "tests_completed", "has_oos")}
+
+    assert summary() == {"tests_total": 2, "tests_completed": 1, "has_oos": True}
+    corrected = lab.enter(sample, "PH", "6.8", reason="Erro de transcrição")
+    assert corrected.status_code == 201
+    assert summary() == {"tests_total": 2, "tests_completed": 1, "has_oos": False}
+    cancelled = lab.post(
+        f"/sample-tests/{lab.test_id(sample, 'DENSITY')}/cancel",
+        lab.analyst,
+        {"reason": "Não solicitado pelo cliente"},
+    )
+    assert cancelled.status_code == 200, cancelled.text
+    assert summary() == {"tests_total": 1, "tests_completed": 1, "has_oos": False}
+    detail = lab.get_sample(sample["id"])
+    assert (detail["tests_total"], detail["tests_completed"]) == (1, 1)
+    assert {t["test_code"]: t["decimal_places"] for t in detail["tests"]} == {
+        "PH": 2,
+        "DENSITY": 2,
+    }
+
+
+def test_priority_and_status_sort_follow_business_order(lab: Lab) -> None:
+    for priority in ("HIGH", "LOW", "URGENT", "NORMAL"):
+        sample = lab.create_sample(priority=priority)
+        if priority in ("HIGH", "URGENT"):
+            _action(lab, sample["id"], "start-analysis", lab.analyst)
+
+    def order(sort: str, field: str) -> list[str]:
+        response = lab.client.get(f"{API}/samples", params={"sort": sort}, headers=lab.analyst)
+        return [item[field] for item in response.json()["items"]]
+
+    assert order("-priority", "priority") == ["URGENT", "HIGH", "NORMAL", "LOW"]
+    assert order("priority", "priority") == ["LOW", "NORMAL", "HIGH", "URGENT"]
+    assert order("status", "status") == ["RECEIVED", "RECEIVED", "IN_ANALYSIS", "IN_ANALYSIS"]
+
+
 def test_search_rejects_unknown_sort_field(lab: Lab) -> None:
     response = lab.client.get(f"{API}/samples", params={"sort": "password"}, headers=lab.analyst)
 
@@ -353,3 +412,125 @@ def test_search_rejects_unknown_sort_field(lab: Lab) -> None:
 def test_unknown_sample_returns_404(lab: Lab) -> None:
     response = lab.client.get(f"{API}/samples/999", headers=lab.analyst)
     assert response.json()["error"]["code"] == "SAMPLE_NOT_FOUND"
+
+
+# --- Cenários negativos complementares (ETAPA 12) -------------------------------
+
+
+def _registration(lab: Lab, **overrides: object) -> dict[str, object]:
+    return {
+        "product_id": lab.product_id,
+        "client_id": lab.client_id,
+        "lot_number": "L1",
+        "origin": "PRODUCTION",
+        "received_at": datetime.now(UTC).isoformat(),
+        **overrides,
+    }
+
+
+@pytest.mark.rules("RN-02")
+def test_inactive_client_cannot_send_samples(lab: Lab) -> None:
+    response = lab.client.patch(
+        f"{API}/clients/{lab.client_id}", json={"is_active": False}, headers=lab.admin
+    )
+    assert response.status_code == 200, response.text
+
+    response = lab.post("/samples", lab.analyst, _registration(lab))
+    assert response.status_code == 422
+    assert response.json()["error"]["code"] == "INVALID_CLIENT"
+
+
+@pytest.mark.rules("RN-03")
+def test_received_at_tolerates_small_clock_skew_only(lab: Lab) -> None:
+    near = (datetime.now(UTC) + timedelta(minutes=2)).isoformat()
+    response = lab.post("/samples", lab.analyst, _registration(lab, received_at=near))
+    assert response.status_code == 201, response.text
+
+    far = (datetime.now(UTC) + timedelta(minutes=10)).isoformat()
+    response = lab.post("/samples", lab.analyst, _registration(lab, received_at=far))
+    assert response.json()["error"]["code"] == "RECEIVED_AT_IN_FUTURE"
+
+
+@pytest.mark.rules("RN-05")
+def test_only_existing_active_tests_can_be_assigned(lab: Lab) -> None:
+    response = lab.client.patch(
+        f"{API}/test-definitions/{lab.tests['MOISTURE']}",
+        json={"is_active": False},
+        headers=lab.admin,
+    )
+    assert response.status_code == 200, response.text
+    sample = lab.create_sample()
+
+    response = lab.post(
+        f"/samples/{sample['id']}/tests",
+        lab.analyst,
+        {"test_definition_ids": [lab.tests["MOISTURE"], 999]},
+    )
+    assert response.status_code == 422
+    error = response.json()["error"]
+    assert error["code"] == "INVALID_TEST_DEFINITION"
+    assert sorted(error["details"]["test_definition_ids"]) == sorted([lab.tests["MOISTURE"], 999])
+    assert {t["test_code"] for t in lab.get_sample(sample["id"])["tests"]} == {"PH", "DENSITY"}
+
+
+@pytest.mark.rules("RN-07")
+def test_completed_test_cannot_be_cancelled(lab: Lab, db: Session) -> None:
+    sample = lab.create_sample()
+    lab.analyze(sample, {"PH": "6.8"})
+    test_id = lab.test_id(sample, "PH")
+
+    response = lab.post(f"/sample-tests/{test_id}/cancel", lab.analyst, {"reason": "Engano"})
+    assert response.status_code == 409
+    assert response.json()["error"]["code"] == "SAMPLE_TEST_NOT_PENDING"
+    assert "TEST_CANCELLED" not in _audit_actions(db, sample["id"])
+
+    unknown = lab.post("/sample-tests/999/cancel", lab.analyst, {"reason": "Não existe"})
+    assert unknown.status_code == 404
+    assert unknown.json()["error"]["code"] == "SAMPLE_TEST_NOT_FOUND"
+
+
+@pytest.mark.rules("RN-14")
+@pytest.mark.parametrize("final", ["APPROVED", "REJECTED", "CANCELLED"])
+def test_final_sample_accepts_no_change(lab: Lab, db: Session, final: str) -> None:
+    sample = lab.create_sample()
+    if final == "CANCELLED":
+        response = _action(lab, sample["id"], "cancel", lab.manager, {"reason": "Duplicada"})
+    else:
+        lab.analyze(sample)
+        lab.submit(sample)
+        response = (
+            _action(lab, sample["id"], "approve", lab.reviewer, {"password": "Senha@2026"})
+            if final == "APPROVED"
+            else _action(lab, sample["id"], "reject", lab.reviewer, {"reason": "Fora do padrão"})
+        )
+    assert response.status_code == 200, response.text
+    current = response.json()
+    assert current["status"] == final
+    assert current["allowed_actions"] == []
+    audit_before = _audit_actions(db, sample["id"])
+
+    attempts = {
+        "edit": lab.client.patch(
+            f"{API}/samples/{sample['id']}",
+            json={"version": current["version"], "notes": "ajuste"},
+            headers=lab.analyst,
+        ),
+        "assign": lab.post(
+            f"/samples/{sample['id']}/tests",
+            lab.analyst,
+            {"test_definition_ids": [lab.tests["MOISTURE"]]},
+        ),
+        "cancel-test": lab.post(
+            f"/sample-tests/{lab.test_id(sample, 'PH')}/cancel",
+            lab.analyst,
+            {"reason": "Depois de finalizada"},
+        ),
+        "result": lab.enter(sample, "PH", "6.9", reason="Depois de finalizada"),
+        "start": _action(lab, sample["id"], "start-analysis", lab.analyst),
+        "cancel": _action(lab, sample["id"], "cancel", lab.manager, {"reason": "Tarde demais"}),
+        "reject": _action(lab, sample["id"], "reject", lab.reviewer, {"reason": "Tarde demais"}),
+    }
+    for name, response in attempts.items():
+        assert response.status_code == 409, (name, response.text)
+    assert lab.get_sample(sample["id"])["status"] == final
+    assert _audit_actions(db, sample["id"]) == audit_before

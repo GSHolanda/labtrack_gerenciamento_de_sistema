@@ -42,6 +42,16 @@ class AuditRepository(BaseRepository[AuditLog]):
             statement = statement.where(AuditLog.occurred_at <= filters.occurred_to)
         return self.paginate(statement, page)
 
+    def sample_events(self, sample_id: int, action: str) -> list[AuditLog]:
+        """Eventos de uma ação na amostra, em ordem de inclusão."""
+        return list(
+            self.session.scalars(
+                select(AuditLog)
+                .where(AuditLog.sample_id == sample_id, AuditLog.action == action)
+                .order_by(AuditLog.id)
+            )
+        )
+
     def chain(self) -> Iterator[AuditLog]:
         # Uma única consulta; no PostgreSQL o cursor mantém o snapshot de leitura.
         # yield_per limita memória sem carregar toda a trilha de uma vez.

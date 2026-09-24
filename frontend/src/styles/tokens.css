@@ -1,0 +1,57 @@
+/* Tokens de design: cores, tipografia, espaçamento e sombras. */
+:root {
+  --font-sans: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+
+  --color-bg: #f3f5f8;
+  --color-surface: #ffffff;
+  --color-surface-muted: #f8fafc;
+  --color-border: #e2e8f0;
+  --color-border-strong: #cbd5e1;
+  --color-text: #0f172a;
+  --color-text-muted: #64748b;
+  --color-text-subtle: #94a3b8;
+
+  --color-primary: #0f766e;
+  --color-primary-hover: #115e59;
+  --color-primary-soft: #e6f6f4;
+  --color-focus: #14b8a6;
+
+  --color-sidebar: #0c1e28;
+  --color-sidebar-border: #1c3340;
+  --color-sidebar-text: #b6c5cf;
+  --color-sidebar-active: rgba(45, 212, 191, 0.14);
+  --color-sidebar-accent: #5eead4;
+
+  /* Tons semânticos: texto / fundo / borda */
+  --tone-neutral-fg: #334155;
+  --tone-neutral-bg: #f1f5f9;
+  --tone-neutral-border: #e2e8f0;
+  --tone-muted-fg: #64748b;
+  --tone-muted-bg: #f1f5f9;
+  --tone-muted-border: #e2e8f0;
+  --tone-info-fg: #1d4ed8;
+  --tone-info-bg: #e0ecff;
+  --tone-info-border: #bfd6fe;
+  --tone-progress-fg: #4338ca;
+  --tone-progress-bg: #e7e8ff;
+  --tone-progress-border: #c7cbfb;
+  --tone-warning-fg: #a15c07;
+  --tone-warning-bg: #fdf3d7;
+  --tone-warning-border: #f7dc93;
+  --tone-success-fg: #15803d;
+  --tone-success-bg: #dcf5e4;
+  --tone-success-border: #b3e6c3;
+  --tone-danger-fg: #b91c1c;
+  --tone-danger-bg: #fde4e4;
+  --tone-danger-border: #f8c1c1;
+
+  --radius: 10px;
+  --radius-sm: 6px;
+  --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.06);
+  --shadow-md: 0 4px 16px rgba(15, 23, 42, 0.08);
+  --shadow-lg: 0 20px 48px rgba(15, 23, 42, 0.22);
+
+  --sidebar-width: 244px;
+  --topbar-height: 56px;
+}

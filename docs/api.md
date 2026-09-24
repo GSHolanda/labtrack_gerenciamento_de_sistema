@@ -92,6 +92,16 @@ Filtros de `GET /samples`: `code`, `product_id`, `client_id`, `lot_number`,
 `status` (múltiplo), `priority`, `responsible_id`, `received_from`,
 `received_to`, `q` (busca livre), `page`, `size`, `sort` (ex.: `-received_at`).
 
+`sort` aceita `sample_code`, `received_at`, `lot_number`, `priority` e `status`.
+Prioridade ordena por nível (`LOW` → `URGENT`; `-priority` traz as urgentes
+primeiro) e status segue a sequência do workflow (`RECEIVED` → `CANCELLED`),
+não a ordem alfabética.
+
+Cada item da lista traz também `tests_total` e `tests_completed` (testes ativos,
+sem os cancelados) e `has_oos` (algum teste ativo com resultado vigente fora da
+especificação), usados pela interface para o progresso e o alerta de OOS. No
+detalhe, cada teste traz `decimal_places`, as casas de exibição do tipo de teste.
+
 As transições de status usam **rotas de ação** (`/approve`, `/reject`...) em vez
 de um `PATCH status`. Cada ação tem permissão, validações e payload próprios, e
 o Swagger documenta cada uma separadamente.
@@ -104,15 +114,47 @@ o Swagger documenta cada uma separadamente.
 | POST   | `/sample-tests/{id}/results` | `RESULT_ENTER`        | Registra resultado; se já existir, cria nova versão (exige `change_reason`) |
 | GET    | `/results`                   | `SAMPLE_READ`         | Pesquisa de resultados (`spec_status=OOS`, fonte, teste, período)  |
 
+Os itens de `GET /results` trazem os limites do teste atribuído e `decimal_places`.
+`GET /products/{id}/specifications` devolve o limite efetivo (`spec_min`,
+`spec_max`) e, separadamente, os limites próprios do produto
+(`product_spec_min`, `product_spec_max`; vazio quando vale o padrão do teste),
+para que um editor do plano não transforme o padrão em limite do produto.
+
 ### Instrumentos: gestão
 | Método | Rota                          | Permissão           | Descrição                                          |
 | ------ | ----------------------------- | ------------------- | -------------------------------------------------- |
-| GET    | `/instruments`                | autenticado         | Equipamentos com status e última comunicação       |
+| GET    | `/instruments`                | autenticado         | Equipamentos com status, calibração e última comunicação |
 | POST   | `/instruments`                | `INSTRUMENT_MANAGE` | Cadastra equipamento (chave exibida uma única vez) |
 | GET    | `/instruments/{id}`           | autenticado         | Detalhe                                            |
-| PATCH  | `/instruments/{id}`           | `INSTRUMENT_MANAGE` | Altera status, calibração, localização             |
+| PATCH  | `/instruments/{id}`           | `INSTRUMENT_MANAGE` | Altera status, calibração, localização e dados cadastrais |
 | POST   | `/instruments/{id}/rotate-key`| `INSTRUMENT_MANAGE` | Gera nova chave de integração                      |
-| GET    | `/instruments/{id}/messages`  | autenticado         | Log de mensagens recebidas (aceitas e rejeitadas)  |
+| GET    | `/instruments/{id}/messages`  | autenticado         | Log de mensagens recebidas (aceitas e recusadas)   |
+
+**Implementado na ETAPA 8.** Filtros de `GET /instruments`: `q` (código, nome,
+local ou número de série), `status` e `instrument_type`; `sort` aceita `code`,
+`name`, `status`, `calibration_due_date` e `last_communication_at`. Cada
+equipamento traz dois campos calculados:
+
+- `calibration_valid`: a calibração vale até `calibration_due_date`, inclusive
+  (data em UTC). Sem data registrada, não é válida.
+- `online`: houve comunicação (heartbeat, worklist ou resultado) nos últimos
+  5 minutos.
+
+O cadastro exige `code`, `name`, `instrument_type` e `calibration_due_date`. O
+código é normalizado para maiúsculas e, junto com o tipo, não pode ser alterado
+depois: identifica o equipamento nos resultados já gravados. Código ou número de
+série repetidos retornam `409 DUPLICATED_INSTRUMENT`. `PATCH` recusa `null` em
+`name`, `status` e `calibration_due_date`; alterações são auditadas
+(`INSTRUMENT_UPDATED`) apenas com os campos que mudaram.
+
+A resposta do cadastro e da rotação inclui `api_key` (`lt_inst_...`). A chave é
+exibida **somente** nessa resposta: o banco guarda apenas o SHA-256 dela, e o
+audit trail não registra nem a chave nem o hash. A rotação aceita um `reason`
+opcional (`INSTRUMENT_KEY_ROTATED`) e invalida a chave anterior no mesmo commit.
+
+`GET /instruments/{id}/messages` é paginado (mais recentes primeiro), aceita
+`status=ACCEPTED|REJECTED` e devolve o `payload` exatamente como foi recebido,
+com código e mensagem da recusa ou o `test_result_id` gerado.
 
 ### Instrumentos: integração (header `X-Instrument-Key`)
 | Método | Rota                     | Descrição                                                          |
@@ -120,6 +162,24 @@ o Swagger documenta cada uma separadamente.
 | GET    | `/instruments/worklist`  | Testes pendentes compatíveis com o tipo do instrumento             |
 | POST   | `/instruments/results`   | Envia um resultado                                                 |
 | POST   | `/instruments/heartbeat` | Sinaliza que o equipamento está conectado                          |
+
+Chave ausente, desconhecida ou revogada retorna `401 INVALID_INSTRUMENT_KEY`. O
+JWT de um usuário não autentica um instrumento, e a chave de um instrumento não
+dá acesso às rotas de usuário. Como não há equipamento a quem atribuir a
+tentativa, ela vai para o log da aplicação, e não para o log de mensagens.
+
+**Worklist.** Retorna os testes `PENDING` de amostras `IN_ANALYSIS` cujo tipo de
+teste exige o tipo do equipamento, ordenados por prioridade (`URGENT` →
+`LOW`), recebimento e ID. `limit` vai de 1 a 100 (padrão 50). Cada item traz
+`sample_code`, `priority`, `received_at`, `test`, `test_name`, `unit`,
+`spec_min`, `spec_max`, `decimal_places` e `assigned_at`. Equipamento
+inativo, em manutenção ou com calibração vencida recebe `409` com o código
+correspondente; mesmo assim a comunicação é registrada.
+
+**Heartbeat.** O corpo é opcional (`{"instrument_id": "PH-METER-01"}`); se
+enviado, precisa ser o dono da chave. Funciona também para equipamentos parados e
+responde `status`, `calibration_due_date`, `calibration_valid`, `can_measure` e
+`server_time`.
 
 Exemplo de envio:
 
@@ -132,7 +192,7 @@ Content-Type: application/json
   "instrument_id": "PH-METER-01",
   "sample_code": "SMP-2026-0001",
   "test": "PH",
-  "result": 7.21,
+  "result": "7.21",
   "unit": "pH"
 }
 ```
@@ -142,28 +202,51 @@ Content-Type: application/json
 {
   "message_id": 318,
   "status": "ACCEPTED",
+  "result_id": 912,
   "sample_code": "SMP-2026-0001",
   "test": "PH",
-  "result": 7.21,
+  "result": "7.21",
+  "unit": "pH",
   "spec_status": "IN_SPEC",
-  "spec_min": 6.5,
-  "spec_max": 7.5
+  "spec_min": "6.5000",
+  "spec_max": "7.5000"
 }
 ```
 
-Rejeições possíveis (a mensagem é gravada como `REJECTED` com o código):
+`result` aceita número ou texto, com até 14 dígitos e 4 casas decimais. Códigos
+de amostra e de teste são normalizados para maiúsculas; a unidade é comparada
+exatamente (`mS` ≠ `ms`). Campos extras são recusados. O resultado aceito é
+gravado com `source = INSTRUMENT`, sem `entered_by`, e auditado como
+`RESULT_ENTERED` pelo próprio equipamento (`actor_type = INSTRUMENT`). O
+resultado, a mensagem `ACCEPTED` e a auditoria são gravados na mesma transação.
+Um resultado de instrumento não impede a aprovação pelo revisor: o princípio
+dos quatro olhos considera apenas os usuários que lançaram resultados.
+
+Rejeições possíveis, na ordem em que são verificadas. A mensagem é gravada como
+`REJECTED` com o código, auditada como `INSTRUMENT_MESSAGE_REJECTED` (vinculada à
+timeline da amostra quando o código existe) e nenhum resultado é gravado. O
+envelope de erro traz `details.message_id`:
 
 | Código                      | HTTP | Situação                                                   |
 | --------------------------- | ---- | ---------------------------------------------------------- |
-| `INSTRUMENT_ID_MISMATCH`    | 403  | `instrument_id` do corpo difere do dono da chave           |
-| `INSTRUMENT_NOT_ACTIVE`     | 409  | Equipamento em manutenção ou inativo                       |
-| `CALIBRATION_EXPIRED`       | 409  | Calibração vencida                                         |
+| `INVALID_PAYLOAD`           | 422  | Corpo ausente, não é objeto, campo ausente/extra ou valor inválido (`details.errors`) |
+| `INSTRUMENT_ID_MISMATCH`    | 403  | `instrument_id` do corpo difere do dono da chave (RN-19)   |
+| `INSTRUMENT_NOT_ACTIVE`     | 409  | Equipamento em manutenção ou inativo (RN-20)               |
+| `CALIBRATION_EXPIRED`       | 409  | Calibração vencida ou não registrada (RN-20)               |
 | `SAMPLE_NOT_FOUND`          | 404  | Código de amostra inexistente                              |
-| `SAMPLE_NOT_IN_ANALYSIS`    | 409  | Amostra não está em análise                                |
+| `SAMPLE_NOT_IN_ANALYSIS`    | 409  | Amostra não está em análise (RN-22)                        |
 | `TEST_NOT_ASSIGNED`         | 409  | Teste não atribuído à amostra                              |
-| `TEST_ALREADY_COMPLETED`    | 409  | Teste já tem resultado (correção só manual, com justificativa) |
-| `INSTRUMENT_TYPE_MISMATCH`  | 409  | Tipo do equipamento incompatível com o teste               |
-| `UNIT_MISMATCH`             | 422  | Unidade diferente da especificada                          |
+| `SAMPLE_TEST_CANCELLED`     | 409  | Teste atribuído, mas cancelado                             |
+| `INSTRUMENT_TYPE_MISMATCH`  | 409  | Tipo do equipamento incompatível com o teste (RN-21)       |
+| `TEST_ALREADY_COMPLETED`    | 409  | Teste já tem resultado; correção só manual, com justificativa (RN-22) |
+| `UNIT_MISMATCH`             | 422  | Unidade diferente da especificada (RN-23)                  |
+
+Envios simultâneos para o mesmo teste são serializados: no PostgreSQL a amostra
+é bloqueada (`SELECT ... FOR UPDATE`) durante a validação e, como última
+defesa, o índice único de versão vigente impede duas gravações. O segundo envio
+é recusado como `TEST_ALREADY_COMPLETED` e também fica no log. JSON sintaticamente
+inválido é recusado pelo framework (`422 VALIDATION_ERROR`) antes da integração
+e não entra no log, pois não há conteúdo a registrar.
 
 ### Audit trail
 | Método | Rota                 | Permissão    | Descrição                                                                  |
@@ -235,8 +318,112 @@ A apresentação visual da timeline será implementada no frontend da ETAPA 9.
 | ------ | ----------------------------- | ---------------- | --------------------------------------------------------------- |
 | GET    | `/dashboard/summary`          | `DASHBOARD_VIEW` | KPIs: abertas, em análise, aguardando revisão, aprovadas, reprovadas, OOS, tempo médio |
 | GET    | `/dashboard/charts`           | `DASHBOARD_VIEW` | Séries: por status, processadas por mês, % aprovação, OOS por teste |
-| GET    | `/reports/samples/{id}`       | `REPORT_EXPORT`  | Dados do relatório da amostra (JSON)                            |
-| GET    | `/reports/samples/{id}/pdf`   | `REPORT_EXPORT`  | Relatório em PDF (geração é auditada)                           |
+| GET    | `/reports/samples/{id}`       | `REPORT_EXPORT`  | Conteúdo do relatório da amostra (JSON, prévia sem auditoria)   |
+| GET    | `/reports/samples/{id}/pdf`   | `REPORT_EXPORT`  | Emite o relatório em PDF (cada emissão é auditada)              |
+
+**Dashboard, implementado na ETAPA 10.** As duas rotas aceitam `period_days`
+(1 a 366, padrão 30): os últimos N dias até o momento da consulta, como
+intervalo semiaberto `[início, fim)` em UTC. Todos os perfis têm `DASHBOARD_VIEW`,
+e consultar o dashboard não gera auditoria.
+
+`GET /dashboard/summary`:
+
+```json
+{
+  "generated_at": "2026-09-24T12:00:00Z",
+  "period": { "days": 90, "start": "...", "end": "...", "timezone": "America/Sao_Paulo" },
+  "workload": {
+    "open": 7, "received": 1, "in_analysis": 3, "awaiting_review": 3,
+    "open_with_oos": 1, "urgent_open": 1
+  },
+  "current": {
+    "received": 20, "approved": 10, "rejected": 2, "cancelled": 1,
+    "approval_rate": 0.8333,
+    "average_processing_hours": 51.2, "median_processing_hours": 49.0,
+    "oos_results": 5, "samples_with_oos": 5
+  },
+  "previous": { "...": "mesmos campos, período anterior de mesma duração" }
+}
+```
+
+- `workload` é a situação **atual**, independente do período. `open` soma
+  recebidas, em análise e aguardando revisão; `open_with_oos` conta as que têm
+  resultado vigente OOS num teste ativo (não podem ser aprovadas).
+- `received` usa a data de recebimento; `approved`, `rejected` e `cancelled`, a
+  data de finalização (`completed_at`).
+- `approval_rate` = aprovadas / (aprovadas + reprovadas); canceladas não entram.
+  Vazio (`null`) quando não há decisões.
+- Tempo de processamento: do recebimento à decisão do revisor (aprovação ou
+  reprovação), com média e mediana em horas.
+- `oos_results` conta resultados OOS registrados no período **em todas as
+  versões**: um OOS depois corrigido continua na estatística (RN-18).
+- `previous` é o período imediatamente anterior, de mesma duração, para comparação.
+
+`GET /dashboard/charts` traz:
+
+- `granularity`: `day` até 31 dias, `week` até 120 e `month` acima disso;
+- `throughput`: aprovadas, reprovadas e taxa por intervalo, **sem lacunas**
+  (intervalos vazios com zero e taxa `null`). `bucket` é o primeiro dia do
+  intervalo (a semana começa na segunda-feira);
+- `by_status`: amostras recebidas no período por status atual, os seis status
+  sempre presentes, na ordem do workflow;
+- `oos_by_test`: resultados registrados no período por teste (`results`, `oos`,
+  `oos_rate`), dos que mais tiveram OOS para os que menos tiveram.
+
+Dias, semanas e meses são agrupados no **fuso do laboratório**
+(`LABTRACK_LAB_TIMEZONE`, padrão `America/Sao_Paulo`): uma decisão às 23h30 de
+30/09 em São Paulo conta em setembro, embora já seja 01/10 em UTC. As datas
+continuam gravadas e devolvidas em UTC. Contagens e agrupamentos por status e
+por teste são feitos no banco. A série temporal lê apenas status e datas das
+amostras finalizadas na janela e agrupa no fuso local, sem SQL específico de um banco.
+
+**Relatórios, implementados na ETAPA 11.** O relatório de análise só existe
+para amostras **revisadas** (`APPROVED` ou `REJECTED`, RN-27). Nos demais
+status as duas rotas respondem `409 REPORT_NOT_AVAILABLE`, com `status` e
+`reportable_statuses` em `details`; amostra inexistente responde `404
+SAMPLE_NOT_FOUND`. Analista, revisor e gestor têm `REPORT_EXPORT`; o
+administrador não.
+
+`GET /reports/samples/{id}` devolve o conteúdo, a mesma estrutura que gera o PDF:
+
+- `sample`: código, cliente, produto (com categoria), lote, origem, prioridade,
+  recebimento, quem registrou, analista responsável, envio para revisão e observações;
+- `decision`: `APPROVED` ou `REJECTED`, revisor, data e `comment` (comentário da
+  aprovação ou justificativa da reprovação);
+- `tests`: método, unidade, casas decimais, limites (o *snapshot* da atribuição),
+  `result` vigente (valor, `spec_status`, origem, usuário ou equipamento, data,
+  justificativa da correção), `previous_versions` (versões substituídas, da mais
+  antiga para a mais recente), `had_oos` e, para testes cancelados,
+  `cancellation` (quem, quando e justificativa, lidos do audit trail);
+- `summary`, `analysts` (quem lançou resultados) e `instruments`;
+- `content_hash`: SHA-256 do JSON canônico de `sample`, `decision` e `tests`
+  (decimais normalizados, datas em UTC). Como a amostra finalizada não muda
+  (RN-14), toda emissão da mesma amostra tem a mesma impressão digital;
+- `lab_name` (`LABTRACK_LAB_NAME`), `timezone` (`LABTRACK_LAB_TIMEZONE`),
+  `generated_at` e `generated_by`.
+
+Consultar o JSON **não** gera registro no audit trail: é a prévia exibida na
+interface.
+
+`GET /reports/samples/{id}/pdf` **emite** o documento (A4, com cabeçalho,
+rodapé e "Página X de Y" em todas as páginas): identificação, resultados,
+correções com todas as versões, testes cancelados, parecer da revisão e notas.
+Datas no fuso do laboratório. Cada emissão grava, na mesma transação,
+`REPORT_GENERATED` no audit trail (RN-28), com `new_value = {format, status,
+content_hash}`; o registro aparece na Sample Timeline. Se a geração do PDF
+falhar, nada é registrado. Resposta:
+
+| Cabeçalho             | Valor                                                     |
+| --------------------- | --------------------------------------------------------- |
+| `Content-Type`        | `application/pdf`                                         |
+| `Content-Disposition` | `attachment; filename="relatorio-SMP-2026-0007.pdf"`      |
+| `Cache-Control`       | `no-store`                                                |
+| `X-Report-SHA256`     | impressão digital do conteúdo (a mesma do rodapé do PDF)  |
+| `X-Report-Emission`   | ID do registro `REPORT_GENERATED` no audit trail          |
+
+O PDF usa a Helvetica padrão dos leitores de PDF (sem arquivos de fonte para
+distribuir). Símbolos fora da codificação WinAnsi são trocados no documento
+(`≤` vira `<=`); o JSON mantém o texto original.
 
 ## Convenções
 

@@ -40,6 +40,7 @@ def _assert_same_result(actual: dict[str, Any], expected: dict[str, Any]) -> Non
     assert normalized(actual) == normalized(expected)
 
 
+@pytest.mark.rules("RN-06", "RN-16")
 @pytest.mark.parametrize(
     ("value", "expected"),
     [
@@ -88,6 +89,7 @@ def test_result_uses_product_limits_and_is_audited(
     assert event.new_value["spec_status"] == expected
 
 
+@pytest.mark.rules("RN-09")
 def test_received_sample_does_not_accept_results(lab: Lab, db: Session) -> None:
     sample = lab.create_sample()
     before = [event.id for event in _audit(db, sample["id"])]
@@ -100,6 +102,7 @@ def test_received_sample_does_not_accept_results(lab: Lab, db: Session) -> None:
     assert [event.id for event in _audit(db, sample["id"])] == before
 
 
+@pytest.mark.rules("RN-17")
 @pytest.mark.parametrize("reason", [None, "", "   ", "erro"])
 def test_amendment_requires_meaningful_reason(lab: Lab, reason: str | None) -> None:
     sample = lab.create_sample()
@@ -118,6 +121,7 @@ def test_amendment_requires_meaningful_reason(lab: Lab, reason: str | None) -> N
     assert _history(lab, sample) == original
 
 
+@pytest.mark.rules("RN-17", "RN-18")
 def test_correction_preserves_oos_history_and_audits_both_values(lab: Lab, db: Session) -> None:
     sample = lab.create_sample()
     lab.analyze(sample, {"PH": "8.1", "DENSITY": "1.02"})
@@ -183,6 +187,7 @@ def test_only_analyst_can_enter_results(lab: Lab, role: str) -> None:
     assert _history(lab, sample) == []
 
 
+@pytest.mark.rules("RN-09")
 def test_cancelled_test_does_not_accept_results(lab: Lab) -> None:
     sample = lab.create_sample()
     cancelled = lab.post(
@@ -200,6 +205,7 @@ def test_cancelled_test_does_not_accept_results(lab: Lab) -> None:
     assert _history(lab, sample) == []
 
 
+@pytest.mark.rules("RN-11")
 @pytest.mark.parametrize("state", ["AWAITING_REVIEW", "APPROVED", "REJECTED", "CANCELLED"])
 def test_results_are_locked_after_submission(lab: Lab, state: str) -> None:
     sample = lab.create_sample()
@@ -222,6 +228,7 @@ def test_results_are_locked_after_submission(lab: Lab, state: str) -> None:
     assert _history(lab, sample) == original
 
 
+@pytest.mark.rules("RN-18")
 def test_search_oos_defaults_to_current_results_and_can_include_history(lab: Lab) -> None:
     sample = lab.create_sample()
     lab.analyze(sample, {"PH": "8.1", "DENSITY": "1.02"})
@@ -236,6 +243,7 @@ def test_search_oos_defaults_to_current_results_and_can_include_history(lab: Lab
     assert oos["items"][0]["test_code"] == "PH"
     assert oos["items"][0]["sample_code"] == sample["sample_code"]
     assert Decimal(oos["items"][0]["spec_max"]) == Decimal("7.0")
+    assert oos["items"][0]["decimal_places"] == 2
     assert lab.enter(sample, "PH", "6.8", "Erro de transcrição").status_code == 201
     assert search(spec_status="OOS")["total"] == 0
     historical = search(spec_status="OOS", current_only=False)
@@ -249,6 +257,7 @@ def test_search_oos_defaults_to_current_results_and_can_include_history(lab: Lab
     assert search(source="INSTRUMENT")["total"] == 0
 
 
+@pytest.mark.rules("RN-12", "RN-15")
 def test_approval_records_reviewer_timestamps_history_and_audit(lab: Lab, db: Session) -> None:
     sample = lab.create_sample()
     lab.analyze(sample)
@@ -280,6 +289,7 @@ def test_approval_records_reviewer_timestamps_history_and_audit(lab: Lab, db: Se
     assert DEFAULT_PASSWORD not in str([(e.old_value, e.new_value, e.reason) for e in events])
 
 
+@pytest.mark.rules("RN-12")
 @pytest.mark.parametrize(
     ("value", "password", "status", "code"),
     [
@@ -306,6 +316,7 @@ def test_failed_approval_does_not_change_sample_or_audit(
     assert [event.id for event in _audit(db, sample["id"])] == events_before
 
 
+@pytest.mark.rules("RN-12")
 @pytest.mark.parametrize("action", ["approve", "reject"])
 def test_result_author_cannot_review_after_role_change(lab: Lab, action: str) -> None:
     sample = lab.create_sample()
@@ -325,6 +336,7 @@ def test_result_author_cannot_review_after_role_change(lab: Lab, action: str) ->
     assert lab.get_sample(sample["id"])["status"] == "AWAITING_REVIEW"
 
 
+@pytest.mark.rules("RN-13")
 @pytest.mark.parametrize("action", ["reject", "return-to-analysis"])
 @pytest.mark.parametrize("payload", [{}, {"reason": ""}, {"reason": "    "}])
 def test_review_actions_require_reason(lab: Lab, action: str, payload: dict[str, str]) -> None:
@@ -339,6 +351,7 @@ def test_review_actions_require_reason(lab: Lab, action: str, payload: dict[str,
     assert lab.get_sample(sample["id"]) == before
 
 
+@pytest.mark.rules("RN-13")
 def test_rejection_records_reason_and_reviewer(lab: Lab, db: Session) -> None:
     sample = lab.create_sample()
     lab.analyze(sample, {"PH": "8.1", "DENSITY": "1.02"})
@@ -359,6 +372,7 @@ def test_rejection_records_reason_and_reviewer(lab: Lab, db: Session) -> None:
     assert _audit(db, sample["id"])[-1].reason == "pH fora da especificação"
 
 
+@pytest.mark.rules("RN-13", "RN-17")
 def test_return_to_analysis_allows_correction_and_resubmission(lab: Lab) -> None:
     sample = lab.create_sample()
     lab.analyze(sample, {"PH": "8.1", "DENSITY": "1.02"})

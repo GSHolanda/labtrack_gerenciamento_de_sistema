@@ -5,8 +5,11 @@ import pytest
 
 from app.core.exceptions import AuthenticationError
 from app.core.security import (
+    INSTRUMENT_KEY_PREFIX,
     create_access_token,
     decode_access_token,
+    generate_instrument_key,
+    hash_instrument_key,
     hash_password,
     verify_password,
 )
@@ -75,3 +78,18 @@ def test_algorithm_none_is_rejected() -> None:
 
     with pytest.raises(AuthenticationError):
         decode_access_token(token, secret=SECRET, algorithm="HS256")
+
+
+def test_instrument_keys_are_random_and_prefixed() -> None:
+    keys = {generate_instrument_key() for _ in range(50)}
+    assert len(keys) == 50
+    assert all(key.startswith(INSTRUMENT_KEY_PREFIX) and len(key) >= 50 for key in keys)
+
+
+def test_instrument_key_hash_is_deterministic_and_hides_the_key() -> None:
+    key = generate_instrument_key()
+    digest = hash_instrument_key(key)
+    assert digest == hash_instrument_key(key)
+    assert len(digest) == 64
+    assert key not in digest
+    assert digest != hash_instrument_key(key + "x")

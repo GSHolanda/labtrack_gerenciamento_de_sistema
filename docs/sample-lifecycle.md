@@ -97,18 +97,24 @@ Cada regra tem um identificador e será coberta por testes automatizados.
 ### Integração com instrumentos
 | ID    | Regra                                                                                                   |
 | ----- | ------------------------------------------------------------------------------------------------------- |
-| RN-19 | O instrumento se autentica pela própria chave, e o `instrument_id` do payload deve ser o dono da chave. |
-| RN-20 | O instrumento precisa estar `ACTIVE` e com calibração válida.                                           |
+| RN-19 | O instrumento se autentica pela própria chave (guardada só como hash), e o `instrument_id` do payload deve ser o dono da chave. |
+| RN-20 | O instrumento precisa estar `ACTIVE` e com calibração válida (até o dia do vencimento, inclusive).      |
 | RN-21 | O tipo do instrumento precisa ser compatível com o equipamento exigido pelo teste.                      |
 | RN-22 | A amostra precisa estar em `IN_ANALYSIS` e o teste atribuído e `PENDING`. O instrumento não sobrescreve resultado: correção é manual e justificada. |
-| RN-23 | A unidade enviada precisa ser a unidade especificada para o teste.                                      |
-| RN-24 | Toda mensagem recebida é registrada (aceita ou rejeitada, com motivo) e auditada.                       |
+| RN-23 | A unidade enviada precisa ser exatamente a unidade especificada para o teste.                           |
+| RN-24 | Toda mensagem de resultado recebida é registrada (aceita ou rejeitada, com motivo) e auditada; a recusa aparece na timeline da amostra quando o código existe. |
 
 ### Usuários
 | ID    | Regra                                                                                                   |
 | ----- | ------------------------------------------------------------------------------------------------------- |
 | RN-25 | Usuários não são excluídos, apenas desativados. Usuário inativo não autentica.                          |
 | RN-26 | Tentativas de login, com sucesso ou não, são auditadas.                                                 |
+
+### Relatórios
+| ID    | Regra                                                                                                   |
+| ----- | ------------------------------------------------------------------------------------------------------- |
+| RN-27 | O relatório de análise só é emitido para amostras revisadas (`APPROVED` ou `REJECTED`); em andamento ou cancelada, a API responde `409 REPORT_NOT_AVAILABLE`. |
+| RN-28 | Cada emissão do PDF é registrada no audit trail (`REPORT_GENERATED`) com a impressão digital SHA-256 do conteúdo, a mesma impressa no rodapé. A prévia em JSON não gera registro. O relatório mostra todas as versões de resultados corrigidos (inclusive OOS) e os testes cancelados com justificativa. |
 
 ## 4. Avaliação de especificação (OOS)
 
@@ -152,6 +158,13 @@ sequenceDiagram
     Note over SVC,DB: Se alguma validação falhar, o resultado não é gravado,<br/>mas a mensagem é registrada como REJECTED com o motivo.
 ```
 
+Implementado na ETAPA 8 (`InstrumentIntegrationService`). A amostra é
+bloqueada durante a validação, então dois envios simultâneos para o mesmo teste
+nunca geram dois resultados: o segundo é recusado como `TEST_ALREADY_COMPLETED`.
+Um resultado de instrumento pode ser corrigido pelo analista, como qualquer
+outro: a correção cria a versão 2 (`MANUAL`) com justificativa, e a leitura
+original do equipamento continua no histórico.
+
 ## 6. Sample Timeline
 
 A timeline é montada a partir do audit trail filtrado pela amostra
@@ -191,4 +204,4 @@ OOS mesmo quando o resultado vigente já está dentro da especificação.
 | `RESULT_ENTERED`            | Primeiro resultado do teste                  | — → valor, `spec_status`, origem      |
 | `RESULT_AMENDED`            | Correção de resultado                        | 7.3 → 7.1 + justificativa             |
 | `INSTRUMENT_MESSAGE_REJECTED` | Mensagem de instrumento recusada           | — → motivo                            |
-| `REPORT_GENERATED`          | Exportação do PDF                            | —                                     |
+| `REPORT_GENERATED`          | Emissão do relatório em PDF                  | — → formato, status, impressão digital |

@@ -1,3 +1,4 @@
+import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -35,6 +36,7 @@ def test_login_is_case_insensitive_for_username(client: TestClient, db: Session)
     assert _login(client, "Carlos.Silva").status_code == 200
 
 
+@pytest.mark.rules("RN-26")
 def test_successful_login_is_audited(client: TestClient, db: Session) -> None:
     _login(client, "ana.souza")
 
@@ -44,6 +46,7 @@ def test_successful_login_is_audited(client: TestClient, db: Session) -> None:
     assert entry.request_id is not None
 
 
+@pytest.mark.rules("RN-26")
 def test_wrong_password_and_unknown_user_get_identical_response(
     client: TestClient, db: Session
 ) -> None:
@@ -56,6 +59,7 @@ def test_wrong_password_and_unknown_user_get_identical_response(
     assert wrong_password.json()["error"]["message"] == unknown_user.json()["error"]["message"]
 
 
+@pytest.mark.rules("RN-26")
 def test_failed_logins_are_audited_with_reason(client: TestClient, db: Session) -> None:
     _login(client, "carlos.silva", "errada123")
     _login(client, "ninguem", "errada123")
@@ -64,6 +68,7 @@ def test_failed_logins_are_audited_with_reason(client: TestClient, db: Session) 
     assert reasons == {"carlos.silva": "senha incorreta", "ninguem": "usuário inexistente"}
 
 
+@pytest.mark.rules("RN-25")
 def test_inactive_user_cannot_log_in(client: TestClient, db: Session) -> None:
     user = db.scalars(select(User).where(User.username == "carlos.silva")).one()
     user.is_active = False
@@ -96,6 +101,7 @@ def test_me_returns_current_user(client: TestClient, login_as: LoginAs) -> None:
     assert response.json()["username"] == "ana.souza"
 
 
+@pytest.mark.rules("RN-25")
 def test_deactivation_revokes_existing_token_immediately(
     client: TestClient, db: Session, login_as: LoginAs
 ) -> None:

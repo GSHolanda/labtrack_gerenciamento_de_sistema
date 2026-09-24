@@ -64,7 +64,12 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
-        expose_headers=["X-Request-ID"],
+        expose_headers=[
+            "X-Request-ID",
+            "Content-Disposition",
+            "X-Report-SHA256",
+            "X-Report-Emission",
+        ],
     )
     # Adicionado por último = camada mais externa: envolve inclusive o CORS.
     app.add_middleware(RequestContextMiddleware)

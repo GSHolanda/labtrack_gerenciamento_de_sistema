@@ -9,16 +9,19 @@ from app.domain.specification import SpecLimits, evaluate, resolve_limits, valid
 DEFAULT = SpecLimits(Decimal("6.5"), Decimal("7.5"))
 
 
+@pytest.mark.rules("RN-06")
 def test_default_limits_apply_without_override() -> None:
     assert resolve_limits(DEFAULT) == DEFAULT
 
 
+@pytest.mark.rules("RN-06")
 def test_product_override_replaces_both_limits() -> None:
     assert resolve_limits(DEFAULT, SpecLimits(Decimal("5.0"), Decimal("6.0"))) == SpecLimits(
         Decimal("5.0"), Decimal("6.0")
     )
 
 
+@pytest.mark.rules("RN-06")
 def test_product_can_override_a_single_side() -> None:
     assert resolve_limits(DEFAULT, SpecLimits(None, Decimal("7.0"))) == SpecLimits(
         Decimal("6.5"), Decimal("7.0")
@@ -31,6 +34,7 @@ def test_limit_validation() -> None:
     assert validate_limits(Decimal("2"), Decimal("1")) is not None
 
 
+@pytest.mark.rules("RN-01")
 def test_sample_code_format_and_parse() -> None:
     assert format_sample_code(2026, 7) == "SMP-2026-0007"
     assert format_sample_code(2026, 12345) == "SMP-2026-12345"
@@ -41,6 +45,7 @@ def test_sample_code_format_and_parse() -> None:
 # --- Avaliação OOS (RN-16) ----------------------------------------------------
 
 
+@pytest.mark.rules("RN-16")
 @pytest.mark.parametrize(
     ("value", "spec_min", "spec_max", "expected"),
     [
@@ -65,6 +70,7 @@ def test_evaluate(
     assert evaluate(Decimal(value), dec(spec_min), dec(spec_max)) == expected
 
 
+@pytest.mark.rules("RN-16")
 def test_evaluate_is_exact_where_float_would_fail() -> None:
     # Em float, 0.1 + 0.2 = 0.30000000000000004 > 0.3 e o resultado seria OOS.
     assert evaluate(Decimal("0.1") + Decimal("0.2"), None, Decimal("0.3")) == SpecStatus.IN_SPEC

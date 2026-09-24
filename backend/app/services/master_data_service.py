@@ -282,6 +282,8 @@ def _specification_read(spec: ProductSpecification) -> SpecificationRead:
         spec_min=effective.spec_min,
         spec_max=effective.spec_max,
         overrides_default=spec.spec_min is not None or spec.spec_max is not None,
+        product_spec_min=spec.spec_min,
+        product_spec_max=spec.spec_max,
     )
 
 

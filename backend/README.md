@@ -21,8 +21,10 @@ app/
 ├── services/       # Casos de uso e regras de negócio (transações, audit trail)
 └── main.py         # Application factory
 tests/
-├── unit/           # Regras de domínio, configuração e testes de arquitetura
-└── api/            # Testes dos endpoints via TestClient
+├── unit/           # Domínio, configuração, arquitetura e rastreabilidade das regras
+├── api/            # Endpoints via TestClient, incluindo o fluxo ponta a ponta
+├── db/             # Constraints; PostgreSQL: trigger do audit, migrações, concorrência
+└── traceability.py # Matriz regra (RN-xx) → testes, publicada em docs/testing.md
 ```
 
 ## Executando localmente
@@ -64,11 +66,15 @@ A migração inicial cria as 13 tabelas e, no PostgreSQL, o trigger que torna
 
 ```bash
 pytest                 # testes unitários, de API, de arquitetura e de banco (SQLite)
-LABTRACK_TEST_DATABASE_URL=postgresql+psycopg://labtrack:labtrack@localhost:5432/labtrack_test \
-  pytest               # inclui testes que exigem PostgreSQL (trigger, migrações)
+pytest --cov           # com cobertura (mínimo de 95%, com ramos)
+export LABTRACK_TEST_DATABASE_URL=postgresql+psycopg://labtrack:labtrack@localhost:5432/labtrack_test
+pytest                 # inclui testes que exigem PostgreSQL (trigger, migrações, concorrência)
+pytest --postgres      # suíte inteira no PostgreSQL, schema recriado pelas migrações
 ruff check .           # lint
 ruff format --check .  # formatação
 ```
 
 O teste `tests/unit/test_architecture.py` falha se alguma camada violar a regra
-de dependência (por exemplo, importar FastAPI dentro de `services`).
+de dependência (por exemplo, importar FastAPI dentro de `services`), e
+`tests/unit/test_traceability.py` falha se alguma regra de negócio ficar sem
+teste marcado com `@pytest.mark.rules`. Veja [`docs/testing.md`](../docs/testing.md).

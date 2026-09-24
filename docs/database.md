@@ -274,12 +274,17 @@ Constraints: `UNIQUE (product_id, test_definition_id)`, `CHECK (spec_min <= spec
 | `manufacturer` / `model` / `serial_number` | VARCHAR(80) | `serial_number` UNIQUE                   |
 | `location`              | VARCHAR(80)  |                                                               |
 | `status`                | VARCHAR(20)  | CHECK em (`ACTIVE`, `MAINTENANCE`, `INACTIVE`)                |
-| `calibration_due_date`  | DATE         | instrumento com calibração vencida não envia resultados       |
-| `api_key_hash`          | VARCHAR(255) | NOT NULL (hash da chave de integração)                        |
-| `last_communication_at` | TIMESTAMPTZ  | atualizado a cada heartbeat ou resultado                      |
+| `calibration_due_date`  | DATE         | válida até o dia, inclusive; vencida bloqueia resultados      |
+| `api_key_hash`          | VARCHAR(255) | UNIQUE, NOT NULL: SHA-256 da chave de integração              |
+| `last_communication_at` | TIMESTAMPTZ  | atualizado a cada heartbeat, worklist ou resultado            |
 
 O status de conectividade (**online/offline**) é derivado de
-`last_communication_at`, sem ser gravado.
+`last_communication_at` (online se houve comunicação nos últimos 5 minutos),
+sem ser gravado. A chave de integração nunca é armazenada: é exibida uma única
+vez, no cadastro ou na rotação, e o banco guarda apenas o hash. Como a chave
+tem 256 bits aleatórios, um SHA-256 basta (senhas continuam com bcrypt); por
+ser determinístico, ele permite localizar o equipamento pela chave recebida.
+A constraint `UNIQUE` vem da migração `0003`.
 
 ### `samples` — amostras
 | Coluna           | Tipo         | Regras                                                                      |
@@ -363,17 +368,19 @@ Constraints:
 - `CHECK (version = 1 OR change_reason IS NOT NULL)`: correção sem justificativa é recusada.
 
 ### `instrument_results` — mensagens recebidas dos instrumentos
-Registra **toda** mensagem recebida, aceita ou rejeitada, com o payload
-original. Funciona como o log de integração.
+Registra **toda** mensagem de resultado recebida, aceita ou rejeitada, com o
+payload original, inclusive mensagens malformadas. Funciona como o log de
+integração. Heartbeats e consultas à worklist não entram neste log: apenas
+atualizam `instruments.last_communication_at`.
 
 | Coluna           | Tipo          | Regras                                        |
 | ---------------- | ------------- | --------------------------------------------- |
 | `id`             | BIGINT        | PK                                            |
 | `instrument_id`  | BIGINT        | FK → `instruments`, NOT NULL                  |
 | `payload`        | JSONB         | NOT NULL, mensagem original                   |
-| `sample_code`    | VARCHAR(20)   | extraído do payload                           |
-| `test_code`      | VARCHAR(30)   | extraído do payload                           |
-| `value`          | NUMERIC(14,4) | extraído do payload                           |
+| `sample_code`    | VARCHAR(20)   | extraído do payload (normalizado)             |
+| `test_code`      | VARCHAR(30)   | extraído do payload (normalizado)             |
+| `value`          | NUMERIC(14,4) | extraído do payload (vazio se inválido)       |
 | `unit`           | VARCHAR(20)   | extraído do payload                           |
 | `status`         | VARCHAR(10)   | CHECK em (`ACCEPTED`, `REJECTED`), índice     |
 | `error_code` / `error_message` | VARCHAR(50) / TEXT | motivo da rejeição          |

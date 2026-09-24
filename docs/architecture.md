@@ -115,6 +115,23 @@ fica em `src/api/`.
 Em desenvolvimento, o Vite encaminha `/api` para o backend; em produção, o
 Nginx faz o mesmo papel. O navegador fala com uma única origem.
 
+Implementado na ETAPA 9 (detalhes em [`frontend/README.md`](../frontend/README.md)):
+
+- **Sessão**: JWT no `sessionStorage`, validado em `GET /auth/me` ao abrir o app;
+  `401` numa requisição autenticada ou a expiração do token encerram a sessão.
+- **Permissões**: `layouts/navigation.ts` define, para cada área, as permissões
+  que a acessam. O mesmo item monta o menu e protege a rota; botões de ação
+  aparecem conforme as permissões de `/auth/me` e os `allowed_actions` da amostra.
+- **Dados**: TanStack Query; cada operação atualiza o detalhe com a resposta da
+  API e invalida listas, timeline e dashboard. Filtros e paginação ficam na URL.
+- **Valores analíticos** tratados como texto decimal na interface inteira.
+- **Dashboard** (ETAPA 10): indicadores e séries calculados no backend
+  (`DashboardService`); a tela usa Recharts carregado sob demanda, com tabela
+  equivalente para cada gráfico e cores validadas para daltonismo.
+- **Relatórios** (ETAPA 11): `ReportService` monta o conteúdo (o mesmo para o
+  JSON e o PDF) e registra cada emissão no audit trail; `services/report_pdf.py`
+  é o adaptador de PDF (ReportLab), a única parte que conhece a biblioteca.
+
 ## 4. Instrument Simulator
 
 Processo Python independente que só conhece a **API REST**. Ele se autentica
@@ -122,6 +139,39 @@ com uma chave por instrumento (`X-Instrument-Key`), consulta a *worklist*
 (testes pendentes compatíveis com seu tipo), envia resultados e *heartbeats*.
 Como o contrato é HTTP, o simulador pode ser trocado por um driver real ou por
 um middleware de integração sem nenhuma mudança no backend.
+
+```
+instrument-simulator/simulator/
+├── client.py        LabTrackClient: HTTP (httpx) + X-Instrument-Key; erros viram ApiError
+├── measurement.py   leitura dentro da faixa central da especificação ou OOS
+├── runner.py        ciclo: heartbeat → worklist → medir → enviar; relatório por ciclo
+├── config.py        URL da API e chave de cada equipamento (config.json)
+└── __main__.py      CLI: run, worklist, send, heartbeat
+```
+
+No backend, a integração fica em `InstrumentIntegrationService` (RN-19 a
+RN-24) e a gestão em `InstrumentService`. As regras puras (calibração, janela
+de online, compatibilidade de tipo e unidade) ficam em `domain/instruments.py`.
+
+## 4.1 Dados de demonstração
+
+`python -m app.cli seed-demo` popula um banco vazio chamando os **mesmos
+serviços da API**: cadastros, amostras, resultados manuais e de instrumentos,
+recusas de integração, correções e revisões. Nada é inserido direto nas
+tabelas, então o audit trail, a cadeia de hashes e a timeline ficam coerentes.
+Para distribuir o histórico nas semanas anteriores, os serviços obtêm a hora
+de `core/clock.py`, que a geração fixa no momento de cada evento, sempre em
+ordem cronológica. Na API o relógio é sempre o real; só o código do CLI pode
+fixá-lo.
+
+## 4.2 Implantação
+
+Cada componente vira uma imagem: a API (Python, sem root), a interface (build
+do Vite servido pelo Nginx, que também faz o proxy de `/api`) e o simulador. O
+`docker-compose.yml` encadeia banco → migrações e demonstração (tarefa única) →
+API → interface e simulador, com condições de saúde. A API não publica porta:
+o navegador fala só com o Nginx e o simulador usa a rede interna. Detalhes,
+variáveis e o caminho para produção em [deployment.md](deployment.md).
 
 ## 5. Aspectos transversais
 
@@ -134,7 +184,7 @@ um middleware de integração sem nenhuma mudança no backend.
 | **Erros**               | Exceções de aplicação (`NotFound`, `BusinessRuleError`, `PermissionDenied`...) convertidas por um handler global em JSON padronizado |
 | **Logs**                | Texto em desenvolvimento, JSON em produção, com `request_id` para correlação                                                  |
 | **Validação**           | Pydantic na borda (formato) + regras de negócio nos serviços/domínio + constraints no banco (defesa em profundidade)           |
-| **Datas**               | Armazenadas em UTC (`TIMESTAMPTZ`); convertidas para o fuso do usuário na interface                                            |
+| **Datas**               | Armazenadas em UTC (`TIMESTAMPTZ`); convertidas para o fuso do usuário na interface. Eventos de negócio usam o relógio da aplicação (`core/clock.py`); indicadores e relatórios usam o fuso do laboratório (`LABTRACK_LAB_TIMEZONE`) |
 | **Concorrência**        | *Optimistic locking* (coluna `version`) em amostras para evitar que duas pessoas sobrescrevam alterações                       |
 | **Documentação da API** | OpenAPI/Swagger gerado automaticamente em `/docs`                                                                              |
 
@@ -148,7 +198,7 @@ A separação em camadas limita o impacto de trocar uma peça da stack:
 | FastAPI → outro framework web                   | `api/`                                                                           | `domain`, `services`, `repositories` |
 | JWT local → SSO corporativo (OIDC, Azure AD)    | `core/security`, dependência de autenticação em `api/`                           | regras de permissão do domínio   |
 | React → Angular / outro cliente                 | `frontend/` inteiro                                                              | backend (o contrato é o OpenAPI) |
-| Gerador de PDF                                  | adaptador de relatório em `services/`                                            | dados do relatório               |
+| Gerador de PDF                                  | adaptador `services/report_pdf.py`                                               | conteúdo do relatório e regras   |
 | Simulador → driver real / middleware            | nada no backend                                                                  | contrato REST de integração      |
 
 ## 7. Decisões arquiteturais
@@ -168,6 +218,9 @@ A separação em camadas limita o impacto de trocar uma peça da stack:
 | 11  | Integração de instrumentos via REST + log bruto das mensagens           | Toda mensagem recebida é rastreável, inclusive as rejeitadas, com o motivo                                |
 | 12  | API versionada (`/api/v1`) e formato de erro padronizado                | Evolução sem quebrar clientes (frontend e instrumentos)                                                   |
 | 13  | Segregação de funções (quem inseriu resultado não aprova a amostra)     | Princípio dos "quatro olhos", prática comum em laboratórios                                              |
+| 14  | Chave de instrumento aleatória (256 bits) guardada como SHA-256         | Exibida uma vez; hash determinístico permite localizar o equipamento sem armazenar a chave; rotação revoga na hora |
+| 15  | Mensagem de instrumento recusada é registrada em transação própria      | O resultado é descartado (rollback), mas o log e a auditoria da recusa são confirmados                    |
+| 16  | Dados de demonstração gerados pelos serviços, com relógio controlado    | Mesmas validações e mesmo audit trail da operação real; histórico cronológico e verificável              |
 
 ## 8. Integridade de dados
 

@@ -11,7 +11,7 @@ from sqlalchemy.orm.exc import StaleDataError
 
 from app.database.session import build_session_factory
 from app.domain.enums import ResultSource, SampleStatus, SpecStatus
-from app.models import Sample, TestDefinition, TestResult
+from app.models import Instrument, Sample, TestDefinition, TestResult
 
 from .conftest import LabData
 
@@ -80,6 +80,7 @@ def test_instrument_result_is_attributable_to_instrument(session: Session, lab: 
     session.commit()
 
 
+@pytest.mark.rules("RN-17")
 def test_amended_result_requires_reason(session: Session, lab: LabData) -> None:
     session.add(_result(lab, is_current=False))
     session.flush()
@@ -87,6 +88,7 @@ def test_amended_result_requires_reason(session: Session, lab: LabData) -> None:
     _assert_rejected(session, _result(lab, version=2))
 
 
+@pytest.mark.rules("RN-17")
 def test_only_one_current_result_per_test(session: Session, lab: LabData) -> None:
     session.add(_result(lab))
     session.flush()
@@ -94,6 +96,7 @@ def test_only_one_current_result_per_test(session: Session, lab: LabData) -> Non
     _assert_rejected(session, _result(lab, version=2, change_reason="Erro de digitação"))
 
 
+@pytest.mark.rules("RN-17")
 def test_result_version_history_is_kept(session: Session, lab: LabData) -> None:
     session.add(_result(lab, value=Decimal("7.3"), is_current=False))
     session.add(_result(lab, value=Decimal("7.1"), version=2, change_reason="Erro de digitação"))
@@ -121,6 +124,7 @@ def test_test_definition_requires_consistent_limits(
     _assert_rejected(session, definition)
 
 
+@pytest.mark.rules("RN-12")
 def test_final_sample_requires_reviewer(session: Session, lab: LabData) -> None:
     lab.sample.status = SampleStatus.APPROVED
     with pytest.raises(IntegrityError):
@@ -135,6 +139,7 @@ def test_final_sample_requires_reviewer(session: Session, lab: LabData) -> None:
     session.commit()
 
 
+@pytest.mark.rules("RN-01")
 def test_sample_code_is_unique(session: Session, lab: LabData) -> None:
     duplicate = Sample(
         sample_code=lab.sample.sample_code,
@@ -146,6 +151,16 @@ def test_sample_code_is_unique(session: Session, lab: LabData) -> None:
         created_by_id=lab.analyst.id,
     )
     _assert_rejected(session, duplicate)
+
+
+def test_instrument_key_hash_is_unique(session: Session, lab: LabData) -> None:
+    clone = Instrument(
+        code="PH-METER-02",
+        name="pHmetro portátil",
+        instrument_type="PH_METER",
+        api_key_hash=lab.instrument.api_key_hash,
+    )
+    _assert_rejected(session, clone)
 
 
 def test_optimistic_locking_detects_concurrent_update(engine: Engine, lab: LabData) -> None:

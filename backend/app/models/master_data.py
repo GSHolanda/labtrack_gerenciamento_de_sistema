@@ -100,5 +100,6 @@ class Instrument(IdMixin, TimestampMixin, Base):
         String(20), default=InstrumentStatus.ACTIVE, server_default=InstrumentStatus.ACTIVE
     )
     calibration_due_date: Mapped[date | None]
-    api_key_hash: Mapped[str] = mapped_column(String(255))
+    # SHA-256 da chave de integração; a chave em si nunca é armazenada.
+    api_key_hash: Mapped[str] = mapped_column(String(255), unique=True)
     last_communication_at: Mapped[datetime | None]
