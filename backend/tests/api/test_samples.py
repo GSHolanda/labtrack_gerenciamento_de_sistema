@@ -2,13 +2,13 @@ from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 
 import pytest
-from sqlalchemy import select, update
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.domain.audit import AuditAction
-from app.models import AuditLog, SampleTest, User
+from app.models import AuditLog, User
 
-from .conftest import API, Lab
+from .conftest import API, IN_SPEC_VALUES, Lab
 
 
 def _audit_actions(db: Session, sample_id: int) -> list[str]:
@@ -18,16 +18,6 @@ def _audit_actions(db: Session, sample_id: int) -> list[str]:
             select(AuditLog.action).where(AuditLog.sample_id == sample_id).order_by(AuditLog.id)
         )
     )
-
-
-def _complete_all_tests(db: Session, sample_id: int) -> None:
-    # Registro de resultados chega na ETAPA 6; aqui simulamos testes concluídos.
-    db.execute(
-        update(SampleTest)
-        .where(SampleTest.sample_id == sample_id, SampleTest.status == "PENDING")
-        .values(status="COMPLETED")
-    )
-    db.commit()
 
 
 def _action(lab: Lab, sample_id: int, action: str, headers: dict[str, str], json=None):  # type: ignore[no-untyped-def]
@@ -224,7 +214,8 @@ def test_full_flow_until_review_with_history(lab: Lab, db: Session) -> None:
     assert pending.status_code == 409
     assert set(pending.json()["error"]["details"]["tests"]) == {"PH", "DENSITY"}
 
-    _complete_all_tests(db, sample["id"])
+    for code, value in IN_SPEC_VALUES.items():
+        assert lab.enter(sample, code, value).status_code == 201
     submitted = _action(lab, sample["id"], "submit-for-review", lab.analyst).json()
     assert submitted["status"] == "AWAITING_REVIEW"
     assert submitted["submitted_at"] is not None
@@ -244,9 +235,8 @@ def test_full_flow_until_review_with_history(lab: Lab, db: Session) -> None:
 
 def test_sample_is_locked_while_awaiting_review(lab: Lab, db: Session) -> None:
     sample = lab.create_sample()
-    _action(lab, sample["id"], "start-analysis", lab.analyst)
-    _complete_all_tests(db, sample["id"])
-    current = _action(lab, sample["id"], "submit-for-review", lab.analyst).json()
+    lab.analyze(sample)
+    current = lab.submit(sample)
 
     edit = lab.client.patch(
         f"{API}/samples/{sample['id']}",

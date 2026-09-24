@@ -10,6 +10,7 @@ from app.api.v1.endpoints._common import Paging, errors, requires
 from app.domain.enums import SamplePriority, SampleStatus
 from app.domain.permissions import Permission
 from app.schemas.common import Page
+from app.schemas.results import ApproveRequest
 from app.schemas.samples import (
     AssignTestsRequest,
     ReasonRequest,
@@ -32,6 +33,7 @@ Creator = requires(Permission.SAMPLE_CREATE)
 Assigner = requires(Permission.SAMPLE_ASSIGN_TESTS)
 Analyst = requires(Permission.SAMPLE_ANALYZE)
 Canceller = requires(Permission.SAMPLE_CANCEL)
+Reviewer = requires(Permission.SAMPLE_REVIEW)
 
 
 @router.get("/samples", response_model=Page[SampleSummary], responses=errors(401, 403, 422))
@@ -155,6 +157,46 @@ def cancel_sample(
     sample_id: int, data: ReasonRequest, session: DbSession, actor: Canceller
 ) -> SampleDetail:
     return to_detail(SampleService(session).cancel(sample_id, data.reason, actor))
+
+
+@router.post(
+    "/samples/{sample_id}/approve",
+    response_model=SampleDetail,
+    responses=errors(401, 403, 404, 409, 422),
+    summary="AWAITING_REVIEW → APPROVED",
+    description=(
+        "Exige a senha do revisor (confirmação da assinatura), nenhum resultado vigente OOS e "
+        "que o revisor não tenha inserido resultados da amostra."
+    ),
+)
+def approve_sample(
+    sample_id: int, data: ApproveRequest, session: DbSession, actor: Reviewer
+) -> SampleDetail:
+    return to_detail(SampleService(session).approve(sample_id, data.password, data.comment, actor))
+
+
+@router.post(
+    "/samples/{sample_id}/reject",
+    response_model=SampleDetail,
+    responses=errors(401, 403, 404, 409, 422),
+    summary="AWAITING_REVIEW → REJECTED (exige justificativa)",
+)
+def reject_sample(
+    sample_id: int, data: ReasonRequest, session: DbSession, actor: Reviewer
+) -> SampleDetail:
+    return to_detail(SampleService(session).reject(sample_id, data.reason, actor))
+
+
+@router.post(
+    "/samples/{sample_id}/return-to-analysis",
+    response_model=SampleDetail,
+    responses=errors(401, 403, 404, 409, 422),
+    summary="AWAITING_REVIEW → IN_ANALYSIS (exige justificativa)",
+)
+def return_to_analysis(
+    sample_id: int, data: ReasonRequest, session: DbSession, actor: Reviewer
+) -> SampleDetail:
+    return to_detail(SampleService(session).return_to_analysis(sample_id, data.reason, actor))
 
 
 @router.get(

@@ -42,6 +42,36 @@ class Lab:
         assert response.status_code == 201, response.text
         return response.json()
 
+    def get_sample(self, sample_id: int) -> dict[str, Any]:
+        return self.client.get(f"{API}/samples/{sample_id}", headers=self.analyst).json()
+
+    def test_id(self, sample: dict[str, Any], code: str) -> int:
+        return next(t["id"] for t in sample["tests"] if t["test_code"] == code)
+
+    def enter(self, sample: dict[str, Any], code: str, value: Any, reason: str | None = None) -> Any:
+        payload: dict[str, Any] = {"value": value}
+        if reason:
+            payload["change_reason"] = reason
+        return self.post(f"/sample-tests/{self.test_id(sample, code)}/results", self.analyst, payload)
+
+    def analyze(self, sample: dict[str, Any], values: dict[str, Any] | None = None) -> dict[str, Any]:
+        """Inicia a análise e lança resultados (por padrão, todos dentro da especificação)."""
+        values = values or IN_SPEC_VALUES
+        response = self.post(f"/samples/{sample['id']}/start-analysis", self.analyst)
+        assert response.status_code == 200, response.text
+        for code, value in values.items():
+            result = self.enter(sample, code, value)
+            assert result.status_code == 201, result.text
+        return self.get_sample(sample["id"])
+
+    def submit(self, sample: dict[str, Any]) -> dict[str, Any]:
+        response = self.post(f"/samples/{sample['id']}/submit-for-review", self.analyst)
+        assert response.status_code == 200, response.text
+        return response.json()
+
+
+# Produto PRD-001: pH 5.5–7.0 (limite do produto) e densidade 1.00–1.05 (padrão).
+IN_SPEC_VALUES = {"PH": "6.8", "DENSITY": "1.02"}
 
 TEST_DEFINITIONS = [
     {

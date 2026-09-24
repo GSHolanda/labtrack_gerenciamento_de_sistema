@@ -7,8 +7,16 @@ from typing import Annotated, Any
 
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints
 
-from app.domain.enums import SampleOrigin, SamplePriority, SampleStatus, SampleTestStatus
+from app.domain.enums import (
+    SampleOrigin,
+    SamplePriority,
+    SampleStatus,
+    SampleTestStatus,
+    SpecStatus,
+)
 from app.domain.workflow import SampleAction, allowed_actions
+from app.schemas.common import UserReference
+from app.schemas.results import ResultRead, to_result
 
 LotNumber = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=50)]
 Reason = Annotated[str, StringConstraints(strip_whitespace=True, min_length=5, max_length=1000)]
@@ -66,11 +74,6 @@ class Reference(BaseModel):
     name: str
 
 
-class UserReference(BaseModel):
-    id: int
-    full_name: str
-
-
 class SampleSummary(BaseModel):
     id: int
     sample_code: str
@@ -97,6 +100,13 @@ class SampleTestRead(BaseModel):
     spec_max: Decimal | None
     status: SampleTestStatus
     assigned_at: datetime
+    current_result: ResultRead | None = None
+    result_versions: int = 0
+    had_oos: bool = Field(
+        default=False,
+        description="Algum resultado deste teste, mesmo corrigido depois, ficou fora da "
+        "especificação (RN-18: um OOS nunca some sem rastro).",
+    )
 
 
 class SampleDetail(SampleSummary):
@@ -108,6 +118,7 @@ class SampleDetail(SampleSummary):
     review_comment: str | None
     completed_at: datetime | None
     tests: list[SampleTestRead]
+    oos_tests: list[str] = Field(description="Testes com resultado vigente fora da especificação")
     allowed_actions: list[SampleAction]
 
 
@@ -151,6 +162,7 @@ def to_summary(sample: Any) -> SampleSummary:
 
 def to_sample_test(test: Any) -> SampleTestRead:
     definition = test.test_definition
+    current = next((result for result in test.results if result.is_current), None)
     return SampleTestRead(
         id=test.id,
         test_definition_id=definition.id,
@@ -162,6 +174,9 @@ def to_sample_test(test: Any) -> SampleTestRead:
         spec_max=test.spec_max,
         status=test.status,
         assigned_at=test.assigned_at,
+        current_result=to_result(current) if current else None,
+        result_versions=len(test.results),
+        had_oos=any(result.spec_status == SpecStatus.OOS for result in test.results),
     )
 
 
@@ -176,6 +191,12 @@ def to_detail(sample: Any) -> SampleDetail:
         review_comment=sample.review_comment,
         completed_at=sample.completed_at,
         tests=[to_sample_test(test) for test in sample.tests],
+        oos_tests=[
+            test.test_definition.code
+            for test in sample.tests
+            if test.status != SampleTestStatus.CANCELLED
+            and any(r.is_current and r.spec_status == SpecStatus.OOS for r in test.results)
+        ],
         allowed_actions=allowed_actions(sample.status),
     )
 

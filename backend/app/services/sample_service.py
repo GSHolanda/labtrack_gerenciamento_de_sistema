@@ -7,8 +7,9 @@ from typing import Any
 from sqlalchemy.orm import Session
 
 from app.core.exceptions import BusinessRuleError, ConflictError, NotFoundError
+from app.core.security import verify_password
 from app.domain.audit import AuditAction
-from app.domain.enums import RoleCode, SampleStatus, SampleTestStatus
+from app.domain.enums import RoleCode, SampleStatus, SampleTestStatus, SpecStatus
 from app.domain.pagination import PageRequest, PageResult
 from app.domain.sample_code import format_sample_code
 from app.domain.specification import SpecLimits, resolve_limits
@@ -228,6 +229,44 @@ class SampleService:
     def cancel(self, sample_id: int, reason: str, actor: User) -> Sample:
         return self._transition(sample_id, SampleAction.CANCEL, actor, reason)
 
+    # --- Revisão --------------------------------------------------------------
+
+    def approve(self, sample_id: int, password: str, comment: str | None, reviewer: User) -> Sample:
+        """RN-12: sem OOS vigente, revisor independente e senha confirmada."""
+
+        def preconditions(sample: Sample) -> None:
+            _ensure_independent_reviewer(sample, reviewer)
+            oos = oos_tests(sample)
+            if oos:
+                raise ConflictError(
+                    f"A amostra {sample.sample_code} não pode ser aprovada: existem "
+                    "resultados fora da especificação.",
+                    code="SAMPLE_HAS_OOS_RESULTS",
+                    details={"oos_tests": oos},
+                )
+            # Assinatura eletrônica simplificada: a senha é conferida no ato da aprovação.
+            if not verify_password(password, reviewer.password_hash):
+                raise BusinessRuleError(
+                    "Senha incorreta. A aprovação não foi registrada.", code="INVALID_SIGNATURE"
+                )
+
+        return self._transition(
+            sample_id, SampleAction.APPROVE, reviewer, None, preconditions, comment
+        )
+
+    def reject(self, sample_id: int, reason: str, reviewer: User) -> Sample:
+        return self._transition(
+            sample_id,
+            SampleAction.REJECT,
+            reviewer,
+            reason,
+            lambda sample: _ensure_independent_reviewer(sample, reviewer),
+            reason,
+        )
+
+    def return_to_analysis(self, sample_id: int, reason: str, reviewer: User) -> Sample:
+        return self._transition(sample_id, SampleAction.RETURN_TO_ANALYSIS, reviewer, reason)
+
     def _transition(
         self,
         sample_id: int,
@@ -235,6 +274,7 @@ class SampleService:
         actor: User,
         reason: str | None,
         precondition: Precondition | None = None,
+        review_comment: str | None = None,
     ) -> Sample:
         """Aplica uma ação do workflow: valida, muda o status e registra histórico e auditoria."""
         sample = self.get(sample_id)
@@ -251,6 +291,10 @@ class SampleService:
             sample.submitted_at = now
         if is_final(target):
             sample.completed_at = now
+        if action in (SampleAction.APPROVE, SampleAction.REJECT):
+            sample.reviewed_by_id = actor.id
+            sample.reviewed_at = now
+            sample.review_comment = review_comment
         self.session.flush()
 
         self._add_history(sample, previous, target, actor, reason)
@@ -367,6 +411,26 @@ def _all_tests_completed(sample: Sample) -> None:
     if pending:  # RN-10
         raise ConflictError(
             "Existem testes sem resultado.", code="TESTS_PENDING", details={"tests": pending}
+        )
+
+
+def oos_tests(sample: Sample) -> list[str]:
+    """Códigos dos testes cujo resultado vigente está fora da especificação."""
+    return [
+        test.test_definition.code
+        for test in _active_tests(sample)
+        for result in test.results
+        if result.is_current and result.spec_status == SpecStatus.OOS
+    ]
+
+
+def _ensure_independent_reviewer(sample: Sample, reviewer: User) -> None:
+    """Princípio dos quatro olhos: quem lançou resultado da amostra não a revisa."""
+    authors = {result.entered_by_id for test in sample.tests for result in test.results}
+    if reviewer.id in authors:
+        raise ConflictError(
+            "Você inseriu resultados desta amostra e não pode revisá-la.",
+            code="FOUR_EYES_VIOLATION",
         )
 
 

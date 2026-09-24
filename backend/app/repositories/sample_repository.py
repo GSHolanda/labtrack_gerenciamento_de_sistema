@@ -3,7 +3,7 @@ from sqlalchemy.orm import selectinload
 
 from app.domain.pagination import PageRequest, PageResult
 from app.domain.sample_code import parse_sequence, year_prefix
-from app.models import Client, Product, Sample, SampleStatusHistory, SampleTest
+from app.models import Client, Product, Sample, SampleStatusHistory, SampleTest, TestResult
 from app.repositories.base import BaseRepository
 from app.schemas.samples import SampleFilter
 
@@ -27,6 +27,12 @@ class SampleRepository(BaseRepository[Sample]):
             .where(Sample.id == sample_id)
             .options(
                 selectinload(Sample.tests).selectinload(SampleTest.test_definition),
+                selectinload(Sample.tests)
+                .selectinload(SampleTest.results)
+                .selectinload(TestResult.entered_by),
+                selectinload(Sample.tests)
+                .selectinload(SampleTest.results)
+                .selectinload(TestResult.instrument),
                 selectinload(Sample.responsible),
                 selectinload(Sample.created_by),
                 selectinload(Sample.reviewed_by),

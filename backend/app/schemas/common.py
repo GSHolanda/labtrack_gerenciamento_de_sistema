@@ -6,6 +6,11 @@ from typing import Any, Generic, TypeVar
 from pydantic import BaseModel, Field
 
 
+class UserReference(BaseModel):
+    id: int
+    full_name: str
+
+
 class ErrorBody(BaseModel):
     code: str = Field(examples=["SAMPLE_NOT_FOUND"])
     message: str = Field(examples=["Amostra SMP-2026-0099 não encontrada."])

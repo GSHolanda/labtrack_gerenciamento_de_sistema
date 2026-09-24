@@ -3,6 +3,8 @@
 from dataclasses import dataclass
 from decimal import Decimal
 
+from app.domain.enums import SpecStatus
+
 
 @dataclass(frozen=True)
 class SpecLimits:
@@ -32,3 +34,16 @@ def validate_limits(spec_min: Decimal | None, spec_max: Decimal | None) -> str |
     if spec_min is not None and spec_max is not None and spec_min > spec_max:
         return "O limite mínimo não pode ser maior que o máximo."
     return None
+
+
+def evaluate(value: Decimal, spec_min: Decimal | None, spec_max: Decimal | None) -> SpecStatus:
+    """RN-16: dentro da especificação se ``spec_min <= valor <= spec_max``.
+
+    Limites são inclusivos; um limite ausente não restringe aquele lado. A
+    comparação usa ``Decimal``, então 7.5 <= 7.5 é exato.
+    """
+    if spec_min is not None and value < spec_min:
+        return SpecStatus.OOS
+    if spec_max is not None and value > spec_max:
+        return SpecStatus.OOS
+    return SpecStatus.IN_SPEC
