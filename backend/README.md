@@ -7,6 +7,7 @@ A arquitetura em camadas está descrita em [`docs/architecture.md`](../docs/arch
 
 ```
 app/
+├── cli/            # Comandos administrativos (ex.: create-admin)
 ├── api/            # Camada HTTP: rotas, dependências (auth, sessão), tradução de erros
 │   └── v1/
 │       ├── router.py
@@ -34,7 +35,8 @@ python -m venv .venv
 source .venv/bin/activate          # Windows: .venv\Scripts\activate
 pip install -e ".[dev]"
 cp .env.example .env
-alembic upgrade head               # cria as tabelas
+alembic upgrade head               # cria as tabelas e os perfis
+python -m app.cli create-admin     # cria o usuário 'admin' (pede a senha)
 
 uvicorn app.main:app --reload
 ```
@@ -42,6 +44,9 @@ uvicorn app.main:app --reload
 - Swagger UI: http://localhost:8000/docs
 - ReDoc: http://localhost:8000/redoc
 - Health check: http://localhost:8000/api/v1/health
+
+No Swagger, use o botão **Authorize** com o usuário e a senha para testar as
+rotas protegidas.
 
 ## Banco de dados e migrações
 

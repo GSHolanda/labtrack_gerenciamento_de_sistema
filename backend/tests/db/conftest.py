@@ -12,7 +12,7 @@ from datetime import UTC, datetime
 from decimal import Decimal
 
 import pytest
-from sqlalchemy import Engine
+from sqlalchemy import Engine, select, text
 from sqlalchemy.orm import Session
 
 import app.models  # noqa: F401
@@ -54,11 +54,13 @@ def postgres_engine() -> Iterator[Engine]:
     from alembic import command
     from alembic.config import Config
 
+    engine = build_engine(POSTGRES_URL)
+    # Banco limpo a cada teste: recria o schema e aplica todas as migrações.
+    with engine.begin() as connection:
+        connection.execute(text("DROP SCHEMA public CASCADE; CREATE SCHEMA public;"))
     config = Config("alembic.ini")
     config.set_main_option("sqlalchemy.url", POSTGRES_URL)
-    command.downgrade(config, "base")
     command.upgrade(config, "head")
-    engine = build_engine(POSTGRES_URL)
     yield engine
     engine.dispose()
 
@@ -78,7 +80,10 @@ def lab(session: Session) -> LabData:
 
 def create_lab_data(session: Session) -> LabData:
     """Cria o mínimo de cadastros para uma amostra com um teste atribuído."""
-    role = Role(code=RoleCode.ANALYST, name="Analista de Laboratório")
+    # No PostgreSQL os perfis já vêm da migração 0002; no SQLite são criados aqui.
+    role = session.scalar(select(Role).where(Role.code == RoleCode.ANALYST)) or Role(
+        code=RoleCode.ANALYST, name="Analista de Laboratório"
+    )
     analyst = User(
         username="carlos.silva",
         email="carlos@labtrack.dev",

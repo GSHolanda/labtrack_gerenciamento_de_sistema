@@ -1,7 +1,6 @@
 """Repositório base: operações comuns, paginação e ordenação seguras."""
 
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass
 from typing import Generic, TypeVar
 
 from sqlalchemy import ColumnElement, Select, func, select
@@ -9,30 +8,11 @@ from sqlalchemy.orm import Session
 
 from app.core.exceptions import BusinessRuleError
 from app.database.base import Base
+from app.domain.pagination import MAX_PAGE_SIZE, PageRequest, PageResult
 
-MAX_PAGE_SIZE = 100
+__all__ = ["MAX_PAGE_SIZE", "BaseRepository", "PageRequest", "PageResult"]
 
-T = TypeVar("T")
 ModelT = TypeVar("ModelT", bound=Base)
-
-
-@dataclass(frozen=True)
-class PageRequest:
-    page: int = 1
-    size: int = 20
-    sort: str | None = None  # "campo" (asc) ou "-campo" (desc)
-
-    @property
-    def offset(self) -> int:
-        return (self.page - 1) * self.size
-
-
-@dataclass(frozen=True)
-class PageResult(Generic[T]):
-    items: Sequence[T]
-    total: int
-    page: int
-    size: int
 
 
 class BaseRepository(Generic[ModelT]):

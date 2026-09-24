@@ -52,6 +52,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             500: {"model": ErrorResponse, "description": "Erro interno"},
         },
     )
+    app.state.engine = engine
     app.state.session_factory = build_session_factory(engine)
     # Garante que as dependências usem exatamente a configuração recebida.
     app.dependency_overrides[get_settings] = lambda: settings

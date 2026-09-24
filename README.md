@@ -6,7 +6,7 @@ total, regras de negócio de um ambiente regulado, integração com instrumentos
 e audit trail imutável.
 
 > 🚧 **Em desenvolvimento.** O projeto é construído em 14 etapas incrementais.
-> Veja o [plano de implementação](docs/roadmap.md). Etapa atual: **3 de 14 concluídas**.
+> Veja o [plano de implementação](docs/roadmap.md). Etapa atual: **4 de 14 concluídas**.
 
 ---
 
@@ -94,7 +94,8 @@ cd backend
 python -m venv .venv
 source .venv/bin/activate          # Windows: .venv\Scripts\activate
 pip install -e ".[dev]"
-alembic upgrade head               # cria as tabelas
+alembic upgrade head               # cria as tabelas e os perfis
+python -m app.cli create-admin     # cria o usuário 'admin' (pede a senha)
 uvicorn app.main:app --reload      # http://localhost:8000/docs
 pytest                             # testes
 ```

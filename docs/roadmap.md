@@ -8,8 +8,8 @@ sistema funcionando, testado e versionado.
 | 1     | Arquitetura e estrutura     | ✅ Concluída |
 | 2     | Banco de dados e modelos    | ✅ Concluída |
 | 3     | Backend e API (fundação)    | ✅ Concluída |
-| 4     | Autenticação e usuários     | ⏳ Próxima   |
-| 5     | Samples e testes            | Planejada    |
+| 4     | Autenticação e usuários     | ✅ Concluída |
+| 5     | Samples e testes            | ⏳ Próxima   |
 | 6     | Resultados e regras OOS     | Planejada    |
 | 7     | Audit trail                 | Planejada    |
 | 8     | Instrument Simulator        | Planejada    |
@@ -44,12 +44,12 @@ sistema funcionando, testado e versionado.
 - Paginação e ordenação genéricas nos repositórios.
 - `/health/ready` com verificação do banco.
 
-### ETAPA 4: Autenticação e usuários
+### ETAPA 4: Autenticação e usuários ✅
 - Hash de senha e JWT.
 - Matriz de permissões (RBAC) no domínio + dependência `require_permission(...)`.
 - Login, `/auth/me`, CRUD de usuários (desativação em vez de exclusão).
-- `AuditService` básico: a partir daqui, os serviços já registram eventos.
-- Seed de perfis e usuário administrador.
+- `AuditService` com hash encadeado: a partir daqui, os serviços já registram eventos.
+- Perfis criados por migração; comando `python -m app.cli create-admin` para o primeiro administrador.
 
 ### ETAPA 5: Samples e testes
 - Cadastros de clientes, produtos, tipos de teste e plano analítico por produto.

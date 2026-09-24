@@ -36,6 +36,10 @@ class Settings(BaseSettings):
     database_url: str = "postgresql+psycopg://labtrack:labtrack@localhost:5432/labtrack"
     database_echo: bool = False
 
+    jwt_secret_key: str = Field(default="dev-secret-change-me-in-production-please", min_length=32)
+    jwt_algorithm: Literal["HS256", "HS384", "HS512"] = "HS256"
+    access_token_expire_minutes: int = Field(default=60, ge=5, le=24 * 60)
+
 
 @lru_cache
 def get_settings() -> Settings:

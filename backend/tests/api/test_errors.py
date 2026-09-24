@@ -31,7 +31,7 @@ def _raise(exc: Exception):  # type: ignore[no-untyped-def]
 
 
 @pytest.fixture
-def app(settings: Settings) -> FastAPI:
+def app_with_errors(settings: Settings) -> FastAPI:
     app = create_app(settings)
     routes = {
         "not-found": NotFoundError("Amostra não encontrada.", code="SAMPLE_NOT_FOUND"),
@@ -55,8 +55,8 @@ def app(settings: Settings) -> FastAPI:
 
 
 @pytest.fixture
-def test_client(app: FastAPI) -> Iterator[TestClient]:
-    with TestClient(app, raise_server_exceptions=False) as client:
+def test_client(app_with_errors: FastAPI) -> Iterator[TestClient]:
+    with TestClient(app_with_errors, raise_server_exceptions=False) as client:
         yield client
 
 
