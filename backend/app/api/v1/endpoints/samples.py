@@ -8,7 +8,9 @@ from fastapi import APIRouter, Query, status
 from app.api.deps import DbSession
 from app.api.v1.endpoints._common import Paging, errors, requires
 from app.domain.enums import SamplePriority, SampleStatus
+from app.domain.pagination import MAX_PAGE_SIZE, PageRequest
 from app.domain.permissions import Permission
+from app.schemas.audit import TimelineEvent, to_timeline_event
 from app.schemas.common import Page
 from app.schemas.results import ApproveRequest
 from app.schemas.samples import (
@@ -24,6 +26,7 @@ from app.schemas.samples import (
     to_history,
     to_summary,
 )
+from app.services.audit_service import AuditService
 from app.services.sample_service import SampleService
 
 router = APIRouter(tags=["Samples"])
@@ -206,3 +209,25 @@ def return_to_analysis(
 )
 def status_history(sample_id: int, session: DbSession, _: Reader) -> list[StatusHistoryRead]:
     return [to_history(entry) for entry in SampleService(session).status_history(sample_id)]
+
+
+@router.get(
+    "/samples/{sample_id}/timeline",
+    response_model=Page[TimelineEvent],
+    responses=errors(401, 403, 404, 422),
+    summary="Histórico cronológico da amostra, derivado do audit trail",
+)
+def sample_timeline(
+    sample_id: int,
+    session: DbSession,
+    _: Reader,
+    page: Annotated[int, Query(ge=1)] = 1,
+    size: Annotated[int, Query(ge=1, le=MAX_PAGE_SIZE)] = 20,
+) -> Page[TimelineEvent]:
+    result = AuditService(session).timeline(sample_id, PageRequest(page=page, size=size))
+    return Page.build(
+        [to_timeline_event(entry) for entry in result.items],
+        result.total,
+        result.page,
+        result.size,
+    )

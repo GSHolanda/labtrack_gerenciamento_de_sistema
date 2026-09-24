@@ -158,6 +158,12 @@ A timeline é montada a partir do audit trail filtrado pela amostra
 (`audit_logs.sample_id`). Por isso ela é consistente com a trilha de auditoria:
 as duas vêm da mesma fonte.
 
+O endpoint paginado `GET /api/v1/samples/{id}/timeline` está disponível desde
+a ETAPA 7; a tela será implementada na ETAPA 9. Os eventos mantêm o nome do
+autor no momento da ação, horários UTC, valores e justificativas. As flags
+`is_correction` e `has_oos` permitem destacar correções e eventos que tiveram
+OOS mesmo quando o resultado vigente já está dentro da especificação.
+
 ```
 23/09/2026
 09:05  Amostra registrada ........................ Carlos Silva (Analista)

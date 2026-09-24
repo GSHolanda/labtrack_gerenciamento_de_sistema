@@ -2,6 +2,7 @@
 
 import hashlib
 import json
+from collections.abc import Iterable
 from dataclasses import dataclass
 from datetime import UTC, date, datetime
 from decimal import Decimal
@@ -9,6 +10,25 @@ from enum import StrEnum
 from typing import Any
 
 from app.domain.enums import ActorType
+
+# Contrato de hash já usado pelos registros existentes (não inclui a PK).
+HASHED_FIELDS = (
+    "occurred_at",
+    "actor_type",
+    "user_id",
+    "instrument_id",
+    "actor_name",
+    "action",
+    "entity_type",
+    "entity_id",
+    "entity_label",
+    "sample_id",
+    "old_value",
+    "new_value",
+    "reason",
+    "request_id",
+    "ip_address",
+)
 
 
 class AuditAction(StrEnum):
@@ -92,3 +112,38 @@ def compute_record_hash(fields: dict[str, Any], previous_hash: str | None) -> st
         separators=(",", ":"),
     )
     return hashlib.sha256(canonical.encode()).hexdigest()
+
+
+@dataclass(frozen=True)
+class ChainEntry:
+    id: int
+    fields: dict[str, Any]
+    previous_hash: str | None
+    record_hash: str
+
+
+@dataclass(frozen=True)
+class ChainVerification:
+    valid: bool
+    checked_records: int
+    first_invalid_id: int | None = None
+    error_code: str | None = None
+
+
+def verify_chain(entries: Iterable[ChainEntry]) -> ChainVerification:
+    """Verifica conteúdo e encadeamento em ordem de inclusão, até a primeira falha.
+
+    A contagem inclui o registro inválido. Lacunas de IDs não são erros: sequências
+    podem avançar em transações revertidas. Não detecta remoção da cauda ou uma
+    reescrita completa sem uma âncora externa confiável.
+    """
+    previous_hash = None
+    checked = 0
+    for entry in entries:
+        checked += 1
+        if entry.previous_hash != previous_hash:
+            return ChainVerification(False, checked, entry.id, "PREVIOUS_HASH_MISMATCH")
+        if compute_record_hash(entry.fields, entry.previous_hash) != entry.record_hash:
+            return ChainVerification(False, checked, entry.id, "RECORD_HASH_MISMATCH")
+        previous_hash = entry.record_hash
+    return ChainVerification(True, checked)

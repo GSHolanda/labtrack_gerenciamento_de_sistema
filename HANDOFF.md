@@ -20,7 +20,8 @@ Leia primeiro: `docs/architecture.md`, `docs/database.md`, `docs/api.md`,
 | 4 Auth/usuários (bcrypt, JWT, RBAC, audit com hash encadeado, migração 0002 de perfis, `python -m app.cli create-admin`) | ✅ commitada |
 | 5 Cadastros, amostras, workflow (start/submit/cancel) | ✅ commitada |
 | 6 Resultados e OOS + revisão | ✅ concluída e validada |
-| 7 a 14 | pendentes (ver `docs/roadmap.md`) |
+| 7 Audit trail e Sample Timeline (API) | ✅ concluída e validada |
+| 8 a 14 | pendentes (ver `docs/roadmap.md`) |
 
 ## ETAPA 6: entrega concluída
 - `app/domain/specification.py::evaluate()` (OOS, limites inclusivos, Decimal) + testes unitários.
@@ -43,16 +44,38 @@ Leia primeiro: `docs/architecture.md`, `docs/database.md`, `docs/api.md`,
 - Corrigida a resposta de aprovação/reprovação: `reviewed_by` agora é atualizado
   pelo relacionamento ORM e aparece na própria resposta da ação.
 
-### Próximos passos: ETAPA 7
-1. Implementar consulta paginada de auditoria com filtros por usuário, ação,
-   entidade, amostra e período (`GET /api/v1/audit-logs`, permissão `AUDIT_READ`).
-2. Expor verificação da cadeia de hashes em `GET /api/v1/audit-logs/verify`,
-   reaproveitando as funções de domínio e o serviço de auditoria existentes.
-3. Implementar `GET /api/v1/samples/{id}/timeline` com `SAMPLE_READ`, derivado
-   do audit trail da amostra, incluindo autor, horário, correções e histórico OOS.
-4. Testar filtros, paginação, permissões, integridade e timeline; manter a
-   auditoria sem endpoints de alteração ou exclusão. Atualizar documentação
-   e fazer um commit da etapa.
+## ETAPA 7: entrega concluída
+- `GET /api/v1/audit-logs` com `AUDIT_READ`: filtros combináveis por usuário,
+  instrumento, tipo de ator, ação, entidade, amostra e período inclusivo em UTC;
+  paginação e ordenação estável. Nomes dos atores preservados como snapshot.
+- `GET /api/v1/audit-logs/verify`: verifica toda a cadeia em ordem de ID, com
+  leitura em lotes numa única consulta. Retorna a primeira inconsistência de
+  conteúdo ou encadeamento. Não detecta remoção da cauda nem recálculo completo
+  sem referência externa confiável; os limites estão documentados.
+- `GET /api/v1/samples/{id}/timeline` com `SAMPLE_READ`: eventos cronológicos,
+  paginados, derivados do audit trail, com flags `is_correction` e `has_oos`.
+  Não expõe IP, request ID ou hashes; a interface visual fica para a ETAPA 9.
+- `domain/audit.py`: `HASHED_FIELDS`, `ChainEntry`, `ChainVerification` e
+  `verify_chain`. O cálculo de hash existente permanece compatível.
+- Contratos em `schemas/audit.py`; consultas em `AuditRepository`; orquestração
+  em `AuditService`; nenhuma rota de alteração ou exclusão da auditoria.
+- 61 novos cenários de teste de domínio/API, incluindo filtros, permissões,
+  adulteração, preservação de OOS, atores de instrumento/sistema e leitura sem escrita.
+
+### Próximos passos: ETAPA 8
+1. Criar gestão de instrumentos (cadastro, consulta, alteração e rotação de chave),
+   com hash da chave e exibição do segredo apenas na criação/rotação.
+2. Implementar autenticação `X-Instrument-Key` e integração `worklist`, `results`,
+   `heartbeat` sob `/api/v1/instruments`. Aplicar RN-19 a RN-24: equipamento ativo,
+   calibração válida, tipo/unidade compatíveis, amostra IN_ANALYSIS e teste PENDING.
+3. Reutilizar `ResultService.record()` sem commit para gravar resultado, mensagem
+   do instrumento e auditoria na mesma transação. Registrar mensagens rejeitadas
+   com motivo; instrumento nunca sobrescreve resultado existente.
+4. Criar o CLI separado em `instrument-simulator/`, comunicando apenas por HTTP,
+   com um ou vários instrumentos e taxa OOS configurável.
+5. Gerar demonstração pelos serviços: 20 amostras, 5 produtos, 4 clientes,
+   5 usuários, 6 equipamentos e 8 testes, com resultados variados e histórico coerente.
+6. Testar integração e regras negativas; atualizar documentação e fazer commit da etapa.
 
 ## Como rodar
 ```bash
@@ -65,7 +88,7 @@ LABTRACK_TEST_DATABASE_URL=postgresql+psycopg://labtrack:labtrack@localhost:5432
 ruff check . && ruff format --check .
 cd ../frontend && npm install && npm run build
 ```
-Validação da ETAPA 6: **231 testes passando, 4 pulados**, Ruff check e format
+Validação da ETAPA 7: **292 testes passando, 4 pulados**, Ruff check e format
 limpos, com Python 3.11. Os quatro testes de PostgreSQL (trigger append-only e
 consistência das migrações) não foram executados: `LABTRACK_TEST_DATABASE_URL`
 não está definida. Os testes de API usam SQLite em memória; ele não preserva

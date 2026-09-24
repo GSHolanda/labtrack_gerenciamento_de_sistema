@@ -174,6 +174,62 @@ Rejeições possíveis (a mensagem é gravada como `REJECTED` com o código):
 Não existem rotas `POST`, `PUT`, `PATCH` ou `DELETE` para o audit trail. Os
 registros são criados apenas pelos serviços, como efeito das operações.
 
+**Consulta implementada na ETAPA 7.** Filtros de `GET /audit-logs`:
+`user_id`, `instrument_id`, `actor_type` (`USER`, `INSTRUMENT`, `SYSTEM`),
+`action`, `entity_type`, `entity_id`, `sample_id`, `occurred_from`, `occurred_to`.
+Os filtros são combinados por AND; entidades e ações usam correspondência exata.
+As datas são inclusivas e normalizadas para UTC; datas sem fuso são interpretadas
+como UTC. Período invertido retorna `422 INVALID_DATE_RANGE`.
+
+A paginação usa `page` e `size` (máximo 100). `sort` aceita `occurred_at`,
+`action` ou `id`, com `-` para ordem decrescente; o padrão é `-occurred_at`,
+com desempate por ID. A resposta inclui o nome do ator registrado no momento
+da ação, valores anterior/novo, justificativa, correlação e hashes.
+
+`GET /audit-logs/verify` verifica **toda** a cadeia por ID, sem filtros nem
+paginação. Usa leitura em lotes numa única consulta, sem bloquear os escritores
+da auditoria. Retorna HTTP 200 também quando encontra inconsistência:
+
+```json
+{
+  "valid": false,
+  "checked_records": 12,
+  "first_invalid_id": 15,
+  "error_code": "RECORD_HASH_MISMATCH"
+}
+```
+
+`checked_records` inclui o registro inválido. `RECORD_HASH_MISMATCH` indica
+divergência entre conteúdo e hash; `PREVIOUS_HASH_MISMATCH` indica quebra do
+encadeamento. Na cadeia válida, `first_invalid_id` e `error_code` são nulos.
+Uma cadeia vazia é válida e verifica zero registros. Lacunas nos IDs não são
+falhas, pois uma transação revertida pode consumir um ID.
+
+A verificação detecta alterações de conteúdo e quebras de encadeamento; não
+detecta remoção da cauda nem recálculo completo da cadeia sem uma referência
+externa confiável. Ela não substitui o trigger append-only e não é certificação
+de conformidade regulatória.
+
+### Sample Timeline
+
+`GET /samples/{id}/timeline` exige `SAMPLE_READ` (inclui o analista), retorna
+o envelope paginado comum e aceita `page` e `size` (máximo 100). A ordem é
+sempre cronológica por `occurred_at`, com desempate por ID. Amostra inexistente
+retorna `404 SAMPLE_NOT_FOUND`.
+
+Cada evento vem de `audit_logs.sample_id`: `id`, `occurred_at` em UTC,
+`actor_type`, `actor_name`, `user_id`, `instrument_id`, `action`, identificação
+da entidade, `sample_id`, `old_value`, `new_value` e `reason`.
+Não inclui IP, request ID ou hashes internos da consulta administrativa.
+
+- `is_correction`: verdadeiro em eventos `RESULT_AMENDED`.
+- `has_oos`: verdadeiro se o valor anterior **ou** o novo do evento contém
+  `spec_status=OOS`. Uma correção para `IN_SPEC` continua destacando seu OOS
+  anterior; o indicador é do evento, não do estado atual da amostra.
+
+Consultar auditoria, verificar a cadeia e ler a timeline não cria novos eventos.
+A apresentação visual da timeline será implementada no frontend da ETAPA 9.
+
 ### Dashboard e relatórios
 | Método | Rota                          | Permissão        | Descrição                                                       |
 | ------ | ----------------------------- | ---------------- | --------------------------------------------------------------- |

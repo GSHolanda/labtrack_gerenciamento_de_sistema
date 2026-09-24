@@ -427,8 +427,11 @@ original. Funciona como o log de integração.
      FOR EACH STATEMENT EXECUTE FUNCTION audit_logs_block_changes();
    ```
 3. **Criptografia**: cada registro guarda o hash do anterior (cadeia de hashes).
-   Uma alteração direta no banco, mesmo feita por um DBA com o trigger
-   desabilitado, quebra a cadeia e é detectada por `GET /api/v1/audit-logs/verify`.
+   `GET /api/v1/audit-logs/verify` recalcula o conteúdo e confere o encadeamento
+   em ordem de ID. Detecta alterações diretas sem recálculo coerente dos hashes
+   e remoções no início/meio da cadeia. Sem uma referência externa confiável,
+   não detecta a remoção da cauda nem uma reescrita completa da cadeia por quem
+   tenha acesso privilegiado. O trigger continua sendo a barreira de escrita.
 
 ## Enumerações (camada `domain`)
 

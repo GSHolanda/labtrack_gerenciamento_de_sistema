@@ -6,7 +6,7 @@ total, regras de negócio de um ambiente regulado, integração com instrumentos
 e audit trail imutável.
 
 > 🚧 **Em desenvolvimento.** O projeto é construído em 14 etapas incrementais.
-> Veja o [plano de implementação](docs/roadmap.md). Etapa atual: **6 de 14 concluídas**.
+> Veja o [plano de implementação](docs/roadmap.md). Etapa atual: **7 de 14 concluídas**.
 
 ---
 
@@ -93,9 +93,14 @@ e aprovação com senha e segregação de funções. Resultados ficam bloqueados
 após o envio para revisão; o revisor pode devolver a amostra para análise
 com justificativa.
 
-As consultas do audit trail e a Sample Timeline são a próxima entrega
-(ETAPA 7). Integração com instrumentos, telas operacionais, dashboard e PDF
-seguem o roadmap; o frontend atual é a estrutura inicial.
+A ETAPA 7 adiciona consulta paginada do audit trail, verificação da cadeia de
+hashes e endpoint da Sample Timeline, com histórico de correções e OOS.
+As consultas administrativas exigem `AUDIT_READ`; a timeline exige `SAMPLE_READ`.
+Veja filtros, respostas e limites da verificação na [documentação da API](docs/api.md).
+
+A próxima entrega é a integração com instrumentos e o simulador (ETAPA 8).
+Telas operacionais, dashboard e PDF seguem o roadmap; o frontend atual é a
+estrutura inicial.
 
 **Backend**
 

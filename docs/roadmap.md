@@ -11,8 +11,8 @@ sistema funcionando, testado e versionado.
 | 4     | Autenticação e usuários     | ✅ Concluída |
 | 5     | Samples e testes            | ✅ Concluída |
 | 6     | Resultados e regras OOS     | ✅ Concluída |
-| 7     | Audit trail                 | ⏳ Próxima   |
-| 8     | Instrument Simulator        | Planejada    |
+| 7     | Audit trail                 | ✅ Concluída |
+| 8     | Instrument Simulator        | ⏳ Próxima   |
 | 9     | Frontend                    | Planejada    |
 | 10    | Dashboard                   | Planejada    |
 | 11    | Relatórios                  | Planejada    |
@@ -67,10 +67,15 @@ sistema funcionando, testado e versionado.
   versionamento, auditoria, bloqueios por status e fluxo completo de revisão.
 - Resposta de aprovação/reprovação já inclui o revisor, sem exigir nova consulta.
 
-### ETAPA 7: Audit trail
+### ETAPA 7: Audit trail ✅
 - Hash encadeado (SHA-256) e verificação de integridade (`/audit-logs/verify`).
 - Consulta com filtros.
 - Endpoint da **Sample Timeline**.
+- Consulta paginada com filtros combináveis, datas inclusivas em UTC e ordenação estável.
+- Verificação completa em leitura por lotes, com identificação da primeira inconsistência.
+- Timeline cronológica por amostra, com autoria preservada, correções e histórico OOS.
+- Testes de permissões, paginação, filtros, adulteração de campos e encadeamento;
+  limites da cadeia de hashes documentados. Sem rotas de escrita na auditoria.
 
 ### ETAPA 8: Instrument Simulator
 - Cadastro de instrumentos com chave de API (hash) e rotação de chave.
