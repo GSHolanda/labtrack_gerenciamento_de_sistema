@@ -10,7 +10,7 @@ from app.core.exceptions import BusinessRuleError
 from app.database.base import Base
 from app.domain.pagination import MAX_PAGE_SIZE, PageRequest, PageResult
 
-__all__ = ["MAX_PAGE_SIZE", "BaseRepository", "PageRequest", "PageResult"]
+__all__ = ["MAX_PAGE_SIZE", "BaseRepository", "ModelT", "PageRequest", "PageResult"]
 
 ModelT = TypeVar("ModelT", bound=Base)
 

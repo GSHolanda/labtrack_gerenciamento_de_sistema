@@ -184,6 +184,12 @@ registros são criados apenas pelos serviços, como efeito das operações.
 
 ## Convenções
 
+### Valores decimais
+Limites e resultados analíticos são serializados como **texto decimal**
+(`"7.2000"`), não como número de ponto flutuante. O cliente recebe exatamente o
+valor gravado no banco, sem arredondamentos de `float`. Na entrada, a API
+aceita tanto número (`7.2`) quanto texto (`"7.2"`).
+
 ### Paginação
 ```json
 { "items": [ ... ], "total": 20, "page": 1, "size": 20, "pages": 1 }

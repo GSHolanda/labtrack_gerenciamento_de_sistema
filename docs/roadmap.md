@@ -9,8 +9,8 @@ sistema funcionando, testado e versionado.
 | 2     | Banco de dados e modelos    | ✅ Concluída |
 | 3     | Backend e API (fundação)    | ✅ Concluída |
 | 4     | Autenticação e usuários     | ✅ Concluída |
-| 5     | Samples e testes            | ⏳ Próxima   |
-| 6     | Resultados e regras OOS     | Planejada    |
+| 5     | Samples e testes            | ✅ Concluída |
+| 6     | Resultados e regras OOS     | ⏳ Próxima   |
 | 7     | Audit trail                 | Planejada    |
 | 8     | Instrument Simulator        | Planejada    |
 | 9     | Frontend                    | Planejada    |
@@ -51,7 +51,7 @@ sistema funcionando, testado e versionado.
 - `AuditService` com hash encadeado: a partir daqui, os serviços já registram eventos.
 - Perfis criados por migração; comando `python -m app.cli create-admin` para o primeiro administrador.
 
-### ETAPA 5: Samples e testes
+### ETAPA 5: Samples e testes ✅
 - Cadastros de clientes, produtos, tipos de teste e plano analítico por produto.
 - Registro de amostra com código sequencial e atribuição automática de testes.
 - Pesquisa com filtros e paginação.

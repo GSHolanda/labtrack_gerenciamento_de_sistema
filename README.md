@@ -6,7 +6,7 @@ total, regras de negócio de um ambiente regulado, integração com instrumentos
 e audit trail imutável.
 
 > 🚧 **Em desenvolvimento.** O projeto é construído em 14 etapas incrementais.
-> Veja o [plano de implementação](docs/roadmap.md). Etapa atual: **4 de 14 concluídas**.
+> Veja o [plano de implementação](docs/roadmap.md). Etapa atual: **5 de 14 concluídas**.
 
 ---
 

@@ -58,6 +58,14 @@ class AuditService:
         )
 
 
+def actor_of(user: Any) -> Actor:
+    return Actor.user(user.id, user.full_name)
+
+
+def snapshot(entity: Any, fields: tuple[str, ...]) -> dict[str, Any]:
+    return {name: getattr(entity, name) for name in fields}
+
+
 def diff(before: dict[str, Any], after: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any]]:
     """Retorna apenas os campos alterados: (valores anteriores, novos valores)."""
     changed = [key for key in after if before.get(key) != after[key]]
