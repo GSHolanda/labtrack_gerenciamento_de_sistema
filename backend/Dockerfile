@@ -31,6 +31,8 @@ COPY --from=build /opt/venv /opt/venv
 COPY alembic.ini ./
 COPY alembic ./alembic
 COPY scripts/docker-init.sh ./scripts/
+# Checkouts antigos no Windows podem trazer o script com CRLF: normaliza para LF.
+RUN sed -i 's/\r$//' scripts/docker-init.sh
 USER labtrack
 EXPOSE 8000
 HEALTHCHECK --interval=10s --timeout=3s --start-period=15s --retries=6 \

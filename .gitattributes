@@ -1,0 +1,3 @@
+# Scripts executados dentro dos contêineres Linux mantêm LF mesmo em checkouts no
+# Windows (core.autocrlf=true); com CRLF o shell falha ("set: Illegal option -").
+*.sh text eol=lf
