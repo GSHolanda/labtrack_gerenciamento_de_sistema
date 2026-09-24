@@ -27,11 +27,14 @@ tests/
 ## Executando localmente
 
 ```bash
+docker compose up -d db            # PostgreSQL (na raiz do repositório)
+
 cd backend
 python -m venv .venv
 source .venv/bin/activate          # Windows: .venv\Scripts\activate
 pip install -e ".[dev]"
 cp .env.example .env
+alembic upgrade head               # cria as tabelas
 
 uvicorn app.main:app --reload
 ```
@@ -40,10 +43,24 @@ uvicorn app.main:app --reload
 - ReDoc: http://localhost:8000/redoc
 - Health check: http://localhost:8000/api/v1/health
 
+## Banco de dados e migrações
+
+```bash
+alembic upgrade head                              # aplica as migrações
+alembic revision --autogenerate -m "descrição"    # nova migração a partir dos modelos
+alembic check                                     # confere se modelos e migrações batem
+```
+
+A migração inicial cria as 13 tabelas e, no PostgreSQL, o trigger que torna
+`audit_logs` *append-only*. O modelo está documentado em
+[`docs/database.md`](../docs/database.md).
+
 ## Qualidade
 
 ```bash
-pytest                 # testes unitários, de API e de arquitetura
+pytest                 # testes unitários, de API, de arquitetura e de banco (SQLite)
+LABTRACK_TEST_DATABASE_URL=postgresql+psycopg://labtrack:labtrack@localhost:5432/labtrack_test \
+  pytest               # inclui testes que exigem PostgreSQL (trigger, migrações)
 ruff check .           # lint
 ruff format --check .  # formatação
 ```

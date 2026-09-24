@@ -9,6 +9,9 @@ dependencies = [
     "uvicorn[standard]>=0.30",
     "pydantic>=2.7",
     "pydantic-settings>=2.3",
+    "sqlalchemy>=2.0.30",
+    "alembic>=1.13",
+    "psycopg[binary]>=3.2",
 ]
 
 [project.optional-dependencies]
@@ -29,10 +32,12 @@ include = ["app*"]
 testpaths = ["tests"]
 pythonpath = ["."]
 addopts = "-ra --import-mode=importlib"
+markers = ["postgres: exige PostgreSQL real (LABTRACK_TEST_DATABASE_URL)"]
 
 [tool.ruff]
 line-length = 100
 target-version = "py311"
+extend-exclude = ["alembic/versions"]  # migrações geradas pelo Alembic
 
 [tool.ruff.lint]
 select = [
@@ -46,3 +51,7 @@ select = [
     "SIM", # simplify
     "RUF", # ruff-specific
 ]
+
+[tool.ruff.lint.isort]
+known-first-party = ["app"]
+known-third-party = ["alembic"]

@@ -6,8 +6,8 @@ sistema funcionando, testado e versionado.
 | Etapa | Entrega                     | Status       |
 | ----- | --------------------------- | ------------ |
 | 1     | Arquitetura e estrutura     | ✅ Concluída |
-| 2     | Banco de dados e modelos    | ⏳ Próxima   |
-| 3     | Backend e API (fundação)    | Planejada    |
+| 2     | Banco de dados e modelos    | ✅ Concluída |
+| 3     | Backend e API (fundação)    | ⏳ Próxima   |
 | 4     | Autenticação e usuários     | Planejada    |
 | 5     | Samples e testes            | Planejada    |
 | 6     | Resultados e regras OOS     | Planejada    |
@@ -29,13 +29,13 @@ sistema funcionando, testado e versionado.
 - **Teste de arquitetura** que impede violações da regra de dependência entre camadas.
 - Frontend Vite + React + TypeScript com a estrutura por features e proxy `/api` para o backend.
 
-### ETAPA 2: Banco de dados e modelos
+### ETAPA 2: Banco de dados e modelos ✅
 - Enums do domínio.
 - Base declarativa com convenção de nomes de constraints e *mixin* de timestamps.
 - 13 modelos SQLAlchemy 2.0 com PKs, FKs, índices, `UNIQUE` e `CHECK`.
 - Alembic + migração inicial (incluindo o trigger de imutabilidade do `audit_logs`).
 - `docker-compose` com PostgreSQL para desenvolvimento.
-- Testes de constraints (ex.: resultado sem autor é recusado pelo banco).
+- Testes de constraints (ex.: resultado sem autor é recusado pelo banco), de *optimistic locking* e, contra PostgreSQL real, do trigger do audit trail e da consistência entre modelos e migrações.
 
 ### ETAPA 3: Backend e API (fundação)
 - Sessão por requisição e controle de transação nos serviços.

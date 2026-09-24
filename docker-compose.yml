@@ -1,0 +1,23 @@
+# Ambiente de desenvolvimento: por enquanto apenas o PostgreSQL.
+# A stack completa (API, frontend, simulador) é adicionada na ETAPA 13.
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: labtrack-db
+    environment:
+      POSTGRES_USER: labtrack
+      POSTGRES_PASSWORD: labtrack
+      POSTGRES_DB: labtrack
+    ports:
+      - "5432:5432"
+    volumes:
+      - labtrack-db-data:/var/lib/postgresql/data
+      - ./backend/scripts/init-test-db.sql:/docker-entrypoint-initdb.d/init-test-db.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U labtrack -d labtrack"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  labtrack-db-data:

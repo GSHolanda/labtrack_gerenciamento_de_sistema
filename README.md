@@ -6,7 +6,7 @@ total, regras de negócio de um ambiente regulado, integração com instrumentos
 e audit trail imutável.
 
 > 🚧 **Em desenvolvimento.** O projeto é construído em 14 etapas incrementais.
-> Veja o [plano de implementação](docs/roadmap.md). Etapa atual: **1 de 14 concluída**.
+> Veja o [plano de implementação](docs/roadmap.md). Etapa atual: **2 de 14 concluídas**.
 
 ---
 
@@ -89,10 +89,12 @@ labtrack/
 **Backend**
 
 ```bash
+docker compose up -d db            # PostgreSQL
 cd backend
 python -m venv .venv
 source .venv/bin/activate          # Windows: .venv\Scripts\activate
 pip install -e ".[dev]"
+alembic upgrade head               # cria as tabelas
 uvicorn app.main:app --reload      # http://localhost:8000/docs
 pytest                             # testes
 ```

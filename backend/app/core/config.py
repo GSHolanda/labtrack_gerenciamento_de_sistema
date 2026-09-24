@@ -33,6 +33,9 @@ class Settings(BaseSettings):
 
     cors_origins: list[str] = Field(default_factory=lambda: ["http://localhost:5173"])
 
+    database_url: str = "postgresql+psycopg://labtrack:labtrack@localhost:5432/labtrack"
+    database_echo: bool = False
+
 
 @lru_cache
 def get_settings() -> Settings:
