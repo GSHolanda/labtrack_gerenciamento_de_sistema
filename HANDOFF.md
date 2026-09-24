@@ -245,7 +245,7 @@ Leia primeiro: `docs/architecture.md`, `docs/database.md`, `docs/api.md`,
 - README reescrito por funcionalidade: execução em Docker primeiro, oito
   capturas em `docs/images/` (tiradas da stack Docker com a demonstração),
   arquitetura, números de qualidade e desenvolvimento local; badge do CI
-  apontando para a branch `claude/festive-bell-x898pg`.
+  com o status da branch principal.
 - `docs/apresentacao.md`: resumo de 30 s, roteiro de 5 min (SMP-2026-0015 com
   OOS bloqueando a aprovação, SMP-2026-0016 aprovável pela `ana.souza`,
   SMP-2026-0005 com OOS corrigido), decisões com alternativas, 12 perguntas.
@@ -255,9 +255,9 @@ Leia primeiro: `docs/architecture.md`, `docs/database.md`, `docs/api.md`,
 - Relatórios das etapas 12, 13 e 14 em `docs/relatorios/`.
 
 ### Projeto concluído: próximos passos opcionais
-1. Quando o usuário pedir: abrir PR de `claude/festive-bell-x898pg` para a
-   branch principal (`claude/inspiring-thompson-wefivy` é a HEAD do remoto) e,
-   depois do merge, tirar o `?branch=` do badge do CI no README.
+1. Feito: as ETAPAS 8 a 14 entraram na branch principal
+   (`claude/inspiring-thompson-wefivy`) pelo PR #1, e o badge do CI passou a
+   mostrar o status dela.
 2. Evoluções citadas na apresentação: SSO (OIDC), bloqueio por tentativas de
    login, notificações (OOS, amostras urgentes), relatórios por período e
    exportação CSV, multi-laboratório.

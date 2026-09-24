@@ -1,6 +1,6 @@
 # LabTrack — Laboratory Sample Management System
 
-[![CI](https://github.com/GSHolanda/labtrack_gerenciamento_de_sistema/actions/workflows/ci.yml/badge.svg?branch=claude/festive-bell-x898pg)](https://github.com/GSHolanda/labtrack_gerenciamento_de_sistema/actions/workflows/ci.yml)
+[![CI](https://github.com/GSHolanda/labtrack_gerenciamento_de_sistema/actions/workflows/ci.yml/badge.svg)](https://github.com/GSHolanda/labtrack_gerenciamento_de_sistema/actions/workflows/ci.yml)
 
 **Mini-LIMS** que acompanha o ciclo de vida de uma amostra de laboratório, do
 recebimento à aprovação ou reprovação, com regras de negócio de um ambiente
