@@ -74,4 +74,16 @@ describe('describeEvent', () => {
     )
     expect(description.details).toEqual(['prioridade: Normal → Urgente'])
   })
+
+  it('emissão do relatório mostra o início da impressão digital', () => {
+    const description = describeEvent(
+      timelineEvent({
+        action: 'REPORT_GENERATED',
+        new_value: { format: 'PDF', status: 'APPROVED', content_hash: 'c47f4806874b92df843fd802' },
+      }),
+    )
+    expect(description.title).toBe('Relatório emitido (PDF)')
+    expect(description.details).toEqual(['Impressão digital c47f4806874b…'])
+    expect(description.tone).toBe('info')
+  })
 })

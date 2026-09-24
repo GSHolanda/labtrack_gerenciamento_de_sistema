@@ -3,7 +3,7 @@
 Branch atual: `claude/festive-bell-x898pg` (repo GSHolanda/labtrack_gerenciamento_de_sistema).
 As ETAPAS 1 a 7 vieram de `claude/inspiring-thompson-wefivy`.
 Leia primeiro: `docs/architecture.md`, `docs/database.md`, `docs/api.md`,
-`docs/sample-lifecycle.md` (regras RN-01 a RN-26) e `docs/roadmap.md`.
+`docs/sample-lifecycle.md` (regras RN-01 a RN-28) e `docs/roadmap.md`.
 
 ## Decisões já aprovadas pelo usuário
 - Camada extra `backend/app/domain/` (regras puras, sem FastAPI/SQLAlchemy).
@@ -25,7 +25,8 @@ Leia primeiro: `docs/architecture.md`, `docs/database.md`, `docs/api.md`,
 | 8 Instrumentos, integração REST, simulador e demonstração | ✅ concluída e validada |
 | 9 Frontend (todas as áreas do menu, timeline visual) | ✅ concluída e validada |
 | 10 Dashboard (indicadores, séries, gráficos acessíveis) | ✅ concluída e validada |
-| 11 a 14 | pendentes (ver `docs/roadmap.md`) |
+| 11 Relatórios (prévia JSON, PDF auditado com impressão digital) | ✅ concluída e validada |
+| 12 a 14 | pendentes (ver `docs/roadmap.md`) |
 
 ## ETAPA 6: entrega concluída
 - `app/domain/specification.py::evaluate()` (OOS, limites inclusivos, Decimal) + testes unitários.
@@ -168,19 +169,40 @@ Leia primeiro: `docs/architecture.md`, `docs/database.md`, `docs/api.md`,
   granularidade, sem audit), demonstração alimentando o dashboard, formatação e
   página no Vitest (período na URL, tabelas, aviso sem decisões).
 
-### Próximos passos: ETAPA 11 (relatórios)
-1. `GET /reports/samples/{id}` (JSON) e `GET /reports/samples/{id}/pdf` com
-   `REPORT_EXPORT`: código, cliente, produto, lote, recebimento, testes,
-   resultados vigentes (e se houve correção), limites, status OOS, analista,
-   revisor e data de aprovação/reprovação. Definir se o relatório só sai para
-   amostras finalizadas (APPROVED/REJECTED) e documentar a regra.
-2. Registrar `REPORT_GENERATED` (já existe em `domain/audit.py`) na mesma
-   transação, sem dados sensíveis; gerar o PDF no backend (ex.: ReportLab ou
-   WeasyPrint; preferir dependência sem binários de sistema, pensando no Windows
-   e no Docker da ETAPA 13).
-3. Trocar o placeholder `frontend/src/features/reports/ReportsPage.tsx` (hoje lista
-   amostras finalizadas) por prévia do relatório e download do PDF; botão também
-   no detalhe da amostra para quem tem `REPORT_EXPORT`.
+## ETAPA 11: entrega concluída
+- Regras RN-27 (relatório só para APPROVED/REJECTED; `409 REPORT_NOT_AVAILABLE`)
+  e RN-28 (cada emissão do PDF grava `REPORT_GENERATED` com `{format, status,
+  content_hash}`; a prévia JSON não audita), em `docs/sample-lifecycle.md`.
+- `app/domain/report.py`: `ensure_reportable`, `content_fingerprint` (SHA-256 do
+  JSON canônico via `to_audit_value`: `7.2100` = `7.21`, datas UTC com ou sem
+  fuso), formatação pt-BR sem arredondar dígitos, faixa ("mín."/"máx.") e datas
+  no fuso do laboratório.
+- `schemas/reports.py` (`SampleReport`, `to_report_body`, `FINGERPRINT_FIELDS` =
+  sample, decision, tests), `services/report_service.py` (JSON e emissão: audit
+  na mesma transação, PDF gerado antes do commit) e `services/report_pdf.py`
+  (ReportLab, Helvetica/WinAnsi com troca de símbolos, `BaseDocTemplate` com
+  quadro sem recuo, `KeepTogether` no parecer, `_NumberedCanvas` para "Página X
+  de Y"). `AuditRepository.sample_events` busca os cancelamentos de teste.
+- `api/v1/endpoints/reports.py`: `GET /reports/samples/{id}` e `/pdf`
+  (`Content-Disposition`, `Cache-Control: no-store`, `X-Report-SHA256`,
+  `X-Report-Emission`, expostos no CORS). Configuração `LABTRACK_LAB_NAME`.
+- Dependências: `reportlab` (runtime) e `pypdf` (dev, lê o texto dos PDFs nos testes).
+- Frontend: `features/reports/` com `ReportsPage` (amostras revisadas, filtro de
+  decisão, prévia e PDF por linha), `SampleReportPage` (`/reports/:id`, mesmo
+  conteúdo e fuso do PDF, emissão com download e conferência da impressão
+  digital), `useEmitReport` (download via `http.download`, toast, invalida
+  timeline e audit); botão "Relatório" no detalhe da amostra; evento
+  "Relatório emitido (PDF)" na timeline. `test/utils.tsx` aceita `Response` pronta.
+
+### Próximos passos: ETAPA 12 (testes)
+1. Consolidar um fluxo ponta a ponta (registro → análise → OOS → correção →
+   revisão → relatório) e revisar a cobertura dos cenários negativos de RN-01 a
+   RN-28 (hoje espalhados por `tests/api/test_*.py`); listar lacunas antes de
+   escrever testes novos.
+2. Rodar a suíte inteira também contra PostgreSQL no CI (serviço `postgres` com
+   `LABTRACK_TEST_DATABASE_URL`) além do SQLite em memória.
+3. Pipeline de CI (GitHub Actions): Ruff + pytest do backend e do simulador,
+   `tsc`, oxlint, Vitest e `vite build` do frontend.
 
 ## Como rodar
 ```bash
@@ -197,16 +219,17 @@ python -m simulator run --once   # com a API rodando e config.json gerado
 cd ../frontend && npm install && npm run dev   # http://localhost:5173, proxy /api → :8000
 npm test && npm run lint && npm run build
 ```
-Validação da ETAPA 10: backend **425 testes passando, nenhum pulado** (inclui os
-de PostgreSQL 16 real), simulador **41**, frontend **63** (Vitest), Ruff,
-oxlint, `tsc` e `vite build` limpos (Recharts fica num chunk separado,
-`DashboardCharts-*.js`, baixado só ao abrir o dashboard). O dashboard foi
-conferido no Chromium sobre a demonstração no PostgreSQL (7/30/90 dias e 12
-meses, tabela equivalente, tooltip por mouse e teclado, largura de celular), sem
-erros de console: 10 aprovadas, 2 reprovadas, taxa 83,3%, tempo médio ~2 d 3 h,
-5 resultados OOS e 1 amostra em aberto com OOS vigente. Os testes de API usam
-SQLite em memória; ele não preserva o fuso das datas, por isso as comparações
-normalizam UTC.
+Validação da ETAPA 11: backend **460 testes passando, nenhum pulado** (inclui os
+de PostgreSQL 16 real), simulador **41**, frontend **74** (Vitest), Ruff,
+oxlint, `tsc` e `vite build` limpos. No Chromium, sobre a demonstração no
+PostgreSQL: lista de relatórios, prévia de SMP-2026-0005 (OOS corrigido no teor
+do ativo), emissão com download do PDF e confirmação da impressão digital,
+evento na timeline e no audit trail, relatório reprovado, amostra não revisada
+(409 esperado, única resposta de erro), emissão pelo analista na lista, largura
+de celular sem rolagem horizontal e administrador sem acesso. Os PDFs gerados
+foram conferidos visualmente (uma página; relatório longo com cabeçalho da
+tabela repetido e "Página X de Y"). Os testes de API usam SQLite em memória; ele
+não preserva o fuso das datas, por isso as comparações normalizam UTC.
 
 No Windows, o ambiente local já está em `backend/.venv`; use
 `.\backend\.venv\Scripts\Activate.ps1` a partir da raiz ou execute diretamente

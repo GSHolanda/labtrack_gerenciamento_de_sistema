@@ -130,7 +130,7 @@ export const AUDIT_ACTION: Record<string, string> = {
   RESULT_ENTERED: 'Resultado registrado',
   RESULT_AMENDED: 'Resultado corrigido',
   INSTRUMENT_MESSAGE_REJECTED: 'Mensagem de equipamento recusada',
-  REPORT_GENERATED: 'Relatório gerado',
+  REPORT_GENERATED: 'Relatório emitido',
 }
 
 export const AUDIT_ACTIONS = Object.keys(AUDIT_ACTION)

@@ -17,6 +17,7 @@ dependencies = [
     "email-validator>=2.1",
     "python-multipart>=0.0.9",
     "tzdata>=2024.1",  # base de fusos no Windows (zoneinfo); no Linux usa a do sistema
+    "reportlab>=4.4",  # PDF do relatório (sem dependências de sistema)
 ]
 
 [project.optional-dependencies]
@@ -24,6 +25,7 @@ dev = [
     "pytest>=8.0",
     "httpx2>=2.13",
     "ruff>=0.6",
+    "pypdf>=5.0",  # leitura do texto dos PDFs nos testes
 ]
 
 [build-system]

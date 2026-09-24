@@ -612,3 +612,200 @@
   clip: rect(0 0 0 0);
   white-space: nowrap;
 }
+
+/* --- Relatório da amostra (ETAPA 11) ------------------------------------------------ */
+/* Prévia com a mesma estrutura do PDF: folha branca, seções e tabelas discretas. */
+
+.report-sheet {
+  max-width: 920px;
+  margin-top: 1rem;
+  padding: 1.75rem 2rem 1.5rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-sm);
+}
+
+.report-sheet__masthead {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  padding-bottom: 0.6rem;
+  border-bottom: 1px solid var(--color-border);
+  font-size: 0.8rem;
+}
+
+.report-sheet__masthead div {
+  display: flex;
+  flex-direction: column;
+}
+
+.report-sheet__masthead span {
+  color: var(--color-text-muted);
+}
+
+.report-sheet__masthead-right {
+  text-align: right;
+}
+
+.report-sheet__title {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin: 1.4rem 0 0.5rem;
+}
+
+.report-sheet__title h2 {
+  margin: 0;
+  font-size: 1.5rem;
+}
+
+.report-sheet__title p {
+  margin: 0.2rem 0 0;
+  color: var(--color-text-muted);
+}
+
+.report-decision {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  column-gap: 0.5rem;
+  min-width: 190px;
+  padding: 0.6rem 0.9rem;
+  border: 1px solid;
+  border-radius: var(--radius-sm);
+}
+
+.report-decision svg {
+  grid-row: span 2;
+  width: 1.5rem;
+  height: 1.5rem;
+}
+
+.report-decision strong {
+  font-size: 1.05rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.report-decision span {
+  font-size: 0.78rem;
+  color: var(--color-text-muted);
+}
+
+.report-decision.is-approved {
+  border-color: var(--tone-success-fg);
+  background: var(--tone-success-bg);
+  color: var(--tone-success-fg);
+}
+
+.report-decision.is-rejected {
+  border-color: var(--tone-danger-fg);
+  background: var(--tone-danger-bg);
+  color: var(--tone-danger-fg);
+}
+
+.report-sheet__section {
+  margin-top: 1.4rem;
+}
+
+.report-sheet__section h3 {
+  margin: 0 0 0.5rem;
+  font-size: 1rem;
+}
+
+.report-sheet__note {
+  margin: 0 0 0.6rem;
+  font-size: 0.8rem;
+  color: var(--color-text-muted);
+}
+
+.report-sheet__section .report-sheet__note:last-child {
+  margin: 0.6rem 0 0;
+}
+
+.report-facts {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  column-gap: 1.5rem;
+  margin: 0;
+}
+
+.report-facts--single {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.report-fact {
+  display: grid;
+  grid-template-columns: 11rem minmax(0, 1fr);
+  gap: 0.75rem;
+  padding: 0.45rem 0;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.report-fact--wide {
+  grid-column: 1 / -1;
+}
+
+.report-fact dt {
+  font-size: 0.8rem;
+  color: var(--color-text-muted);
+}
+
+.report-fact dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.report-table td small {
+  display: block;
+  font-size: 0.76rem;
+  color: var(--color-text-muted);
+}
+
+.report-table tr.is-oos td {
+  background: var(--tone-danger-bg);
+}
+
+.report-oos {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-weight: 600;
+  color: var(--tone-danger-fg);
+}
+
+.report-oos svg {
+  width: 1rem;
+  height: 1rem;
+  flex-shrink: 0;
+}
+
+.report-sheet__footer {
+  margin-top: 1.6rem;
+  padding-top: 0.8rem;
+  border-top: 1px solid var(--color-border);
+  font-size: 0.8rem;
+  color: var(--color-text-muted);
+}
+
+.report-sheet__footer p {
+  margin: 0 0 0.5rem;
+}
+
+@media (max-width: 720px) {
+  .report-sheet {
+    padding: 1.1rem 1rem;
+  }
+
+  .report-facts {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .report-fact {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0.1rem;
+  }
+}

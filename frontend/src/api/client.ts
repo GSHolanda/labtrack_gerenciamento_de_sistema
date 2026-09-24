@@ -76,9 +76,15 @@ interface RequestOptions {
   signal?: AbortSignal
 }
 
-async function request<T>(method: string, path: string, options: RequestOptions = {}): Promise<T> {
+/** Envia a requisição e trata o que é comum a toda resposta: rede, erro da API e 401. */
+async function send(
+  method: string,
+  path: string,
+  options: RequestOptions = {},
+  accept = 'application/json',
+): Promise<Response> {
   const token = config.getToken()
-  const headers: Record<string, string> = { Accept: 'application/json' }
+  const headers: Record<string, string> = { Accept: accept }
   if (token) headers.Authorization = `Bearer ${token}`
 
   let body: BodyInit | undefined
@@ -103,15 +109,35 @@ async function request<T>(method: string, path: string, options: RequestOptions 
     throw new ApiError(0, 'NETWORK_ERROR', 'Não foi possível conectar à API. Tente novamente.')
   }
 
-  if (response.status === 204) return undefined as T
-  const payload: unknown = await response.json().catch(() => null)
   if (!response.ok) {
+    const payload: unknown = await response.json().catch(() => null)
     const error = toApiError(response.status, payload)
     // Só uma requisição autenticada que volta 401 significa sessão expirada/revogada.
     if (response.status === 401 && token) config.onUnauthorized()
     throw error
   }
-  return payload as T
+  return response
+}
+
+async function request<T>(method: string, path: string, options: RequestOptions = {}): Promise<T> {
+  const response = await send(method, path, options)
+  if (response.status === 204) return undefined as T
+  return (await response.json().catch(() => null)) as T
+}
+
+export interface DownloadedFile {
+  blob: Blob
+  /** Nome sugerido pela API (Content-Disposition), quando houver. */
+  filename: string | null
+  headers: Headers
+}
+
+/** Arquivo binário (ex.: PDF) com a mesma autenticação e tratamento de erro do JSON. */
+async function download(path: string, accept: string): Promise<DownloadedFile> {
+  const response = await send('GET', path, {}, accept)
+  const disposition = response.headers.get('Content-Disposition') ?? ''
+  const filename = /filename="?([^";]+)"?/i.exec(disposition)?.[1] ?? null
+  return { blob: await response.blob(), filename, headers: response.headers }
 }
 
 function toApiError(status: number, payload: unknown): ApiError {
@@ -131,6 +157,7 @@ export const http = {
     request<T>('POST', path, { form }),
   patch: <T>(path: string, body: unknown) => request<T>('PATCH', path, { body }),
   put: <T>(path: string, body: unknown) => request<T>('PUT', path, { body }),
+  download,
 }
 
 /** Mensagem legível para qualquer erro (ApiError ou inesperado). */

@@ -1,22 +1,40 @@
 import { keepPreviousData, useQuery } from '@tanstack/react-query'
+import { Download, FileText } from 'lucide-react'
+import { useEffect, useState } from 'react'
 import { Link } from 'react-router'
 
 import { queryKeys } from '../../api/queryKeys'
+import type { SampleFilters } from '../../api/samples'
 import { samplesApi } from '../../api/samples'
-import { Alert } from '../../components/Alert'
 import { SampleStatusBadge } from '../../components/Badge'
+import { Button } from '../../components/Button'
+import { SelectField, TextField } from '../../components/Field'
 import { PageHeader } from '../../components/PageHeader'
 import { Pagination } from '../../components/Pagination'
 import { EmptyState, ErrorState, LoadingState } from '../../components/States'
+import { useDebouncedValue } from '../../hooks/useDebouncedValue'
 import { useListParams } from '../../hooks/useListParams'
 import { formatDateTime } from '../../lib/format'
-import type { SampleFilters } from '../../api/samples'
+import type { SampleStatus } from '../../types/api'
+import { useEmitReport } from './useEmitReport'
 
-/** Amostras finalizadas, candidatas a relatório. O PDF chega na ETAPA 11. */
+// RN-27: relatório só para amostras revisadas (aprovadas ou reprovadas).
+const REPORTABLE: SampleStatus[] = ['APPROVED', 'REJECTED']
+
 export function ReportsPage() {
   const list = useListParams()
+  const [search, setSearch] = useState(list.get('q'))
+  const debouncedSearch = useDebouncedValue(search)
+  const emit = useEmitReport()
+
+  useEffect(() => {
+    if (debouncedSearch !== list.get('q')) list.update({ q: debouncedSearch })
+  }, [debouncedSearch, list])
+
+  const decision = list.get('status') as SampleStatus | ''
   const filters: SampleFilters = {
-    status: ['APPROVED', 'REJECTED'],
+    q: list.get('q') || undefined,
+    status: decision && REPORTABLE.includes(decision) ? [decision] : REPORTABLE,
     sort: '-received_at',
     page: list.page,
     size: 20,
@@ -31,20 +49,39 @@ export function ReportsPage() {
     <>
       <PageHeader
         title="Relatórios"
-        subtitle="Relatórios de análise das amostras finalizadas."
+        subtitle="Relatório de análise das amostras aprovadas ou reprovadas. Cada emissão em PDF fica registrada no audit trail."
       />
-      <Alert tone="info" title="Relatório em PDF na ETAPA 11">
-        A geração do relatório da amostra (JSON e PDF, registrada no audit trail) faz parte da
-        próxima etapa do roadmap. Enquanto isso, os dados completos de cada amostra estão no
-        detalhe.
-      </Alert>
+
+      <section className="filters" aria-label="Filtros">
+        <div className="filters__row">
+          <TextField
+            label="Busca"
+            type="search"
+            placeholder="Código, lote, produto ou cliente"
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+          />
+          <SelectField
+            label="Decisão"
+            value={decision}
+            onChange={(event) => list.update({ status: event.target.value })}
+          >
+            <option value="">Aprovadas e reprovadas</option>
+            <option value="APPROVED">Aprovadas</option>
+            <option value="REJECTED">Reprovadas</option>
+          </SelectField>
+        </div>
+      </section>
+
       <section className="panel">
         {query.isPending ? (
           <LoadingState />
         ) : query.isError ? (
-          <ErrorState error={query.error} />
+          <ErrorState error={query.error} onRetry={() => query.refetch()} />
         ) : query.data.items.length === 0 ? (
-          <EmptyState title="Nenhuma amostra finalizada" />
+          <EmptyState title="Nenhuma amostra revisada encontrada">
+            O relatório fica disponível depois da aprovação ou reprovação da amostra.
+          </EmptyState>
         ) : (
           <>
             <div className="table-wrapper">
@@ -56,7 +93,10 @@ export function ReportsPage() {
                     <th>Cliente</th>
                     <th>Lote</th>
                     <th>Recebida em</th>
-                    <th>Status</th>
+                    <th>Decisão</th>
+                    <th>
+                      <span className="sr-only">Ações</span>
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
@@ -73,6 +113,30 @@ export function ReportsPage() {
                       <td className="nowrap">{formatDateTime(sample.received_at)}</td>
                       <td>
                         <SampleStatusBadge status={sample.status} />
+                      </td>
+                      <td>
+                        <div className="row-actions">
+                          <Link
+                            to={`/reports/${sample.id}`}
+                            className="btn btn--ghost btn--sm"
+                            aria-label={`Prévia do relatório ${sample.sample_code}`}
+                          >
+                            <FileText aria-hidden />
+                            <span>Prévia</span>
+                          </Link>
+                          <Button
+                            size="sm"
+                            icon={<Download aria-hidden />}
+                            aria-label={`Emitir PDF do relatório ${sample.sample_code}`}
+                            loading={emit.isPending && emit.variables?.sampleId === sample.id}
+                            disabled={emit.isPending}
+                            onClick={() =>
+                              emit.mutate({ sampleId: sample.id, sampleCode: sample.sample_code })
+                            }
+                          >
+                            PDF
+                          </Button>
+                        </div>
                       </td>
                     </tr>
                   ))}

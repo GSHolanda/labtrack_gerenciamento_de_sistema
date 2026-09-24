@@ -318,8 +318,8 @@ A apresentação visual da timeline será implementada no frontend da ETAPA 9.
 | ------ | ----------------------------- | ---------------- | --------------------------------------------------------------- |
 | GET    | `/dashboard/summary`          | `DASHBOARD_VIEW` | KPIs: abertas, em análise, aguardando revisão, aprovadas, reprovadas, OOS, tempo médio |
 | GET    | `/dashboard/charts`           | `DASHBOARD_VIEW` | Séries: por status, processadas por mês, % aprovação, OOS por teste |
-| GET    | `/reports/samples/{id}`       | `REPORT_EXPORT`  | Dados do relatório da amostra (JSON)                            |
-| GET    | `/reports/samples/{id}/pdf`   | `REPORT_EXPORT`  | Relatório em PDF (geração é auditada)                           |
+| GET    | `/reports/samples/{id}`       | `REPORT_EXPORT`  | Conteúdo do relatório da amostra (JSON, prévia sem auditoria)   |
+| GET    | `/reports/samples/{id}/pdf`   | `REPORT_EXPORT`  | Emite o relatório em PDF (cada emissão é auditada)              |
 
 **Dashboard, implementado na ETAPA 10.** As duas rotas aceitam `period_days`
 (1 a 366, padrão 30): os últimos N dias até o momento da consulta, como
@@ -376,6 +376,54 @@ Dias, semanas e meses são agrupados no **fuso do laboratório**
 continuam gravadas e devolvidas em UTC. Contagens e agrupamentos por status e
 por teste são feitos no banco. A série temporal lê apenas status e datas das
 amostras finalizadas na janela e agrupa no fuso local, sem SQL específico de um banco.
+
+**Relatórios, implementados na ETAPA 11.** O relatório de análise só existe
+para amostras **revisadas** (`APPROVED` ou `REJECTED`, RN-27). Nos demais
+status as duas rotas respondem `409 REPORT_NOT_AVAILABLE`, com `status` e
+`reportable_statuses` em `details`; amostra inexistente responde `404
+SAMPLE_NOT_FOUND`. Analista, revisor e gestor têm `REPORT_EXPORT`; o
+administrador não.
+
+`GET /reports/samples/{id}` devolve o conteúdo, a mesma estrutura que gera o PDF:
+
+- `sample`: código, cliente, produto (com categoria), lote, origem, prioridade,
+  recebimento, quem registrou, analista responsável, envio para revisão e observações;
+- `decision`: `APPROVED` ou `REJECTED`, revisor, data e `comment` (comentário da
+  aprovação ou justificativa da reprovação);
+- `tests`: método, unidade, casas decimais, limites (o *snapshot* da atribuição),
+  `result` vigente (valor, `spec_status`, origem, usuário ou equipamento, data,
+  justificativa da correção), `previous_versions` (versões substituídas, da mais
+  antiga para a mais recente), `had_oos` e, para testes cancelados,
+  `cancellation` (quem, quando e justificativa, lidos do audit trail);
+- `summary`, `analysts` (quem lançou resultados) e `instruments`;
+- `content_hash`: SHA-256 do JSON canônico de `sample`, `decision` e `tests`
+  (decimais normalizados, datas em UTC). Como a amostra finalizada não muda
+  (RN-14), toda emissão da mesma amostra tem a mesma impressão digital;
+- `lab_name` (`LABTRACK_LAB_NAME`), `timezone` (`LABTRACK_LAB_TIMEZONE`),
+  `generated_at` e `generated_by`.
+
+Consultar o JSON **não** gera registro no audit trail: é a prévia exibida na
+interface.
+
+`GET /reports/samples/{id}/pdf` **emite** o documento (A4, com cabeçalho,
+rodapé e "Página X de Y" em todas as páginas): identificação, resultados,
+correções com todas as versões, testes cancelados, parecer da revisão e notas.
+Datas no fuso do laboratório. Cada emissão grava, na mesma transação,
+`REPORT_GENERATED` no audit trail (RN-28), com `new_value = {format, status,
+content_hash}`; o registro aparece na Sample Timeline. Se a geração do PDF
+falhar, nada é registrado. Resposta:
+
+| Cabeçalho             | Valor                                                     |
+| --------------------- | --------------------------------------------------------- |
+| `Content-Type`        | `application/pdf`                                         |
+| `Content-Disposition` | `attachment; filename="relatorio-SMP-2026-0007.pdf"`      |
+| `Cache-Control`       | `no-store`                                                |
+| `X-Report-SHA256`     | impressão digital do conteúdo (a mesma do rodapé do PDF)  |
+| `X-Report-Emission`   | ID do registro `REPORT_GENERATED` no audit trail          |
+
+O PDF usa a Helvetica padrão dos leitores de PDF (sem arquivos de fonte para
+distribuir). Símbolos fora da codificação WinAnsi são trocados no documento
+(`≤` vira `<=`); o JSON mantém o texto original.
 
 ## Convenções
 

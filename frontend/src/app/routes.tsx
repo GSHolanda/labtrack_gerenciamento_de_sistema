@@ -10,6 +10,7 @@ import { DashboardPage } from '../features/dashboard/DashboardPage'
 import { InstrumentDetailPage } from '../features/instruments/InstrumentDetailPage'
 import { InstrumentsPage } from '../features/instruments/InstrumentsPage'
 import { ReportsPage } from '../features/reports/ReportsPage'
+import { SampleReportPage } from '../features/reports/SampleReportPage'
 import { ResultsPage } from '../features/results/ResultsPage'
 import { SampleDetailPage } from '../features/samples/SampleDetailPage'
 import { SamplesPage } from '../features/samples/SamplesPage'
@@ -51,6 +52,7 @@ export const routes: RouteObject[] = [
           },
           { path: 'audit', element: guarded('/audit', <AuditPage />) },
           { path: 'reports', element: guarded('/reports', <ReportsPage />) },
+          { path: 'reports/:sampleId', element: guarded('/reports', <SampleReportPage />) },
           { path: 'admin', element: guarded('/admin', <AdminPage />) },
           { path: '*', element: <NotFound /> },
         ],

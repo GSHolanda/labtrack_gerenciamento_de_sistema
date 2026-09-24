@@ -41,8 +41,11 @@ class Settings(BaseSettings):
     jwt_algorithm: Literal["HS256", "HS384", "HS512"] = "HS256"
     access_token_expire_minutes: int = Field(default=60, ge=5, le=24 * 60)
 
-    # Fuso do laboratório: agrupa indicadores por dia, semana e mês locais.
-    # As datas continuam gravadas em UTC.
+    # Nome impresso no cabeçalho dos relatórios.
+    lab_name: str = Field(default="Laboratório de Controle de Qualidade", min_length=1)
+
+    # Fuso do laboratório: agrupa indicadores por dia, semana e mês locais e é o
+    # horário impresso nos relatórios. As datas continuam gravadas em UTC.
     lab_timezone: str = "America/Sao_Paulo"
 
     @field_validator("lab_timezone")

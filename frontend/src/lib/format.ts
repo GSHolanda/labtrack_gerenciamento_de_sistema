@@ -27,6 +27,17 @@ export function formatDateTime(value: string | null | undefined): string {
   return value ? dateTimeFormat.format(parseApiDate(value)) : EMPTY
 }
 
+/** Data e hora num fuso específico (ex.: o do laboratório, igual ao PDF do relatório). */
+export function formatDateTimeIn(value: string | null | undefined, timeZone: string): string {
+  if (!value) return EMPTY
+  const format = new Intl.DateTimeFormat(LOCALE, {
+    dateStyle: 'short',
+    timeStyle: 'short',
+    timeZone,
+  })
+  return format.format(parseApiDate(value))
+}
+
 export function formatTime(value: string): string {
   return timeFormat.format(parseApiDate(value))
 }

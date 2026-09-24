@@ -469,3 +469,81 @@ export interface DashboardCharts {
   by_status: { status: SampleStatus; count: number }[]
   oos_by_test: TestOos[]
 }
+
+// --- Relatórios ----------------------------------------------------------------------------
+
+export interface ReportParty {
+  code: string
+  name: string
+}
+
+export interface ReportSample {
+  id: number
+  sample_code: string
+  status: SampleStatus
+  client: ReportParty
+  product: ReportParty & { category: string | null }
+  lot_number: string
+  origin: SampleOrigin
+  priority: SamplePriority
+  received_at: IsoDateTime
+  registered_by: UserReference
+  responsible: UserReference | null
+  submitted_at: IsoDateTime | null
+  notes: string | null
+}
+
+export interface ReportDecision {
+  status: SampleStatus
+  reviewed_by: UserReference
+  reviewed_at: IsoDateTime
+  comment: string | null
+}
+
+export interface ReportResult {
+  version: number
+  value: Decimal
+  unit: string
+  spec_status: SpecStatus
+  source: ResultSource
+  entered_by: UserReference | null
+  instrument_code: string | null
+  entered_at: IsoDateTime
+  change_reason: string | null
+  comment: string | null
+}
+
+export interface ReportTest {
+  test_code: string
+  test_name: string
+  method: string
+  unit: string
+  decimal_places: number
+  spec_min: Decimal | null
+  spec_max: Decimal | null
+  status: SampleTestStatus
+  result: ReportResult | null
+  previous_versions: ReportResult[]
+  had_oos: boolean
+  cancellation: { cancelled_by: string; cancelled_at: IsoDateTime; reason: string | null } | null
+}
+
+export interface SampleReport {
+  lab_name: string
+  generated_at: IsoDateTime
+  generated_by: UserReference
+  timezone: string
+  content_hash: string
+  sample: ReportSample
+  decision: ReportDecision
+  tests: ReportTest[]
+  summary: {
+    tests_reported: number
+    tests_cancelled: number
+    corrected_tests: number
+    current_oos: number
+    had_oos: boolean
+  }
+  analysts: UserReference[]
+  instruments: string[]
+}

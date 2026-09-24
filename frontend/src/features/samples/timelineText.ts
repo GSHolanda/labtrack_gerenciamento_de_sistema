@@ -131,6 +131,14 @@ export function describeEvent(event: TimelineEvent): EventDescription {
         details: [`${text(after.error_code)}: ${text(event.reason)}`],
         tone: 'warning',
       }
+    case 'REPORT_GENERATED': {
+      const hash = typeof after.content_hash === 'string' ? after.content_hash : ''
+      return {
+        title: `Relatório emitido (${text(after.format)})`,
+        details: hash ? [`Impressão digital ${hash.slice(0, 12)}…`] : [],
+        tone: 'info',
+      }
+    }
     default:
       return { title: auditActionLabel(event.action), details: reason, tone: 'neutral' }
   }

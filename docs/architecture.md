@@ -128,6 +128,9 @@ Implementado na ETAPA 9 (detalhes em [`frontend/README.md`](../frontend/README.m
 - **Dashboard** (ETAPA 10): indicadores e séries calculados no backend
   (`DashboardService`); a tela usa Recharts carregado sob demanda, com tabela
   equivalente para cada gráfico e cores validadas para daltonismo.
+- **Relatórios** (ETAPA 11): `ReportService` monta o conteúdo (o mesmo para o
+  JSON e o PDF) e registra cada emissão no audit trail; `services/report_pdf.py`
+  é o adaptador de PDF (ReportLab), a única parte que conhece a biblioteca.
 
 ## 4. Instrument Simulator
 
@@ -172,7 +175,7 @@ fixá-lo.
 | **Erros**               | Exceções de aplicação (`NotFound`, `BusinessRuleError`, `PermissionDenied`...) convertidas por um handler global em JSON padronizado |
 | **Logs**                | Texto em desenvolvimento, JSON em produção, com `request_id` para correlação                                                  |
 | **Validação**           | Pydantic na borda (formato) + regras de negócio nos serviços/domínio + constraints no banco (defesa em profundidade)           |
-| **Datas**               | Armazenadas em UTC (`TIMESTAMPTZ`); convertidas para o fuso do usuário na interface. Eventos de negócio usam o relógio da aplicação (`core/clock.py`); indicadores agrupam dias e meses no fuso do laboratório (`LABTRACK_LAB_TIMEZONE`) |
+| **Datas**               | Armazenadas em UTC (`TIMESTAMPTZ`); convertidas para o fuso do usuário na interface. Eventos de negócio usam o relógio da aplicação (`core/clock.py`); indicadores e relatórios usam o fuso do laboratório (`LABTRACK_LAB_TIMEZONE`) |
 | **Concorrência**        | *Optimistic locking* (coluna `version`) em amostras para evitar que duas pessoas sobrescrevam alterações                       |
 | **Documentação da API** | OpenAPI/Swagger gerado automaticamente em `/docs`                                                                              |
 
@@ -186,7 +189,7 @@ A separação em camadas limita o impacto de trocar uma peça da stack:
 | FastAPI → outro framework web                   | `api/`                                                                           | `domain`, `services`, `repositories` |
 | JWT local → SSO corporativo (OIDC, Azure AD)    | `core/security`, dependência de autenticação em `api/`                           | regras de permissão do domínio   |
 | React → Angular / outro cliente                 | `frontend/` inteiro                                                              | backend (o contrato é o OpenAPI) |
-| Gerador de PDF                                  | adaptador de relatório em `services/`                                            | dados do relatório               |
+| Gerador de PDF                                  | adaptador `services/report_pdf.py`                                               | conteúdo do relatório e regras   |
 | Simulador → driver real / middleware            | nada no backend                                                                  | contrato REST de integração      |
 
 ## 7. Decisões arquiteturais

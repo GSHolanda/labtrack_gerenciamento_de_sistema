@@ -23,4 +23,5 @@ export const queryKeys = {
   dashboard: ['dashboard'] as const,
   dashboardSummary: (days: number) => ['dashboard', 'summary', days] as const,
   dashboardCharts: (days: number) => ['dashboard', 'charts', days] as const,
+  sampleReport: (sampleId: number) => ['reports', 'sample', sampleId] as const,
 }

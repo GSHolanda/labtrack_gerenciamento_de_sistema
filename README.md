@@ -6,7 +6,7 @@ total, regras de negócio de um ambiente regulado, integração com instrumentos
 e audit trail imutável.
 
 > 🚧 **Em desenvolvimento.** O projeto é construído em 14 etapas incrementais.
-> Veja o [plano de implementação](docs/roadmap.md). Etapa atual: **10 de 14 concluídas**.
+> Veja o [plano de implementação](docs/roadmap.md). Etapa atual: **11 de 14 concluídas**.
 
 ---
 
@@ -81,7 +81,7 @@ labtrack/
 | [Arquitetura](docs/architecture.md)              | Camadas, regra de dependência, decisões técnicas, troca de tecnologia |
 | [Modelo de dados](docs/database.md)              | Diagrama ER, dicionário de dados, constraints e índices         |
 | [API](docs/api.md)                               | Endpoints, matriz de permissões, integração com instrumentos    |
-| [Ciclo da amostra](docs/sample-lifecycle.md)     | Máquina de estados, regras de negócio (RN-01 a RN-26), timeline |
+| [Ciclo da amostra](docs/sample-lifecycle.md)     | Máquina de estados, regras de negócio (RN-01 a RN-28), timeline |
 | [Plano de implementação](docs/roadmap.md)        | As 14 etapas e o status de cada uma                             |
 
 ## Como executar (estado atual)
@@ -115,7 +115,12 @@ com comparação ao período anterior (aprovadas, reprovadas, taxa de aprovaçã
 tempo até a decisão, resultados OOS) e gráficos de decisões, taxa de aprovação,
 status e OOS por teste, agrupados no fuso do laboratório.
 
-A próxima entrega é o relatório da amostra em JSON e PDF (ETAPA 11).
+A ETAPA 11 entrega o relatório de análise das amostras aprovadas ou reprovadas:
+prévia na interface e PDF com identificação, resultados, histórico de correções
+(inclusive OOS), testes cancelados e parecer da revisão. Cada emissão fica no
+audit trail com a impressão digital SHA-256 impressa no rodapé do documento.
+
+A próxima entrega consolida os testes e o pipeline de CI (ETAPA 12).
 
 **Backend**
 

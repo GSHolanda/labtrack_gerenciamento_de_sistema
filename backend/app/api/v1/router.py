@@ -13,6 +13,7 @@ from app.api.v1.endpoints import (
     health,
     instruments,
     master_data,
+    reports,
     results,
     samples,
     users,
@@ -29,3 +30,4 @@ api_router.include_router(instruments.integration_router)
 api_router.include_router(instruments.router)
 api_router.include_router(audit.router)
 api_router.include_router(dashboard.router)
+api_router.include_router(reports.router)

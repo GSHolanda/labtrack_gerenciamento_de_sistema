@@ -16,7 +16,8 @@ interface mostra o que o perfil pode fazer, mas quem autoriza é sempre a API.
 | Equipamentos   | `/instruments`         | todos                          | Status, calibração e comunicação (atualizados a cada 30 s); cadastro com a chave exibida uma única vez. |
 |                | `/instruments/:id`     | todos                          | Cadastro, rotação de chave e log de mensagens aceitas e recusadas, com o payload original. |
 | Audit Trail    | `/audit`               | `AUDIT_READ`                   | Consulta com filtros, detalhes com hashes e verificação de integridade da cadeia. |
-| Relatórios     | `/reports`             | `REPORT_EXPORT`                | Amostras finalizadas; o PDF chega na ETAPA 11. |
+| Relatórios     | `/reports`             | `REPORT_EXPORT`                | Amostras aprovadas ou reprovadas, com prévia e emissão do PDF por linha. |
+|                | `/reports/:id`         | `REPORT_EXPORT`                | Prévia do relatório com o mesmo conteúdo e fuso do PDF, emissão com download e confirmação da impressão digital. |
 | Administração  | `/admin`               | `USER_MANAGE` ou `MASTER_DATA_MANAGE` | Usuários, clientes, produtos e editor do plano analítico. |
 
 O menu e a proteção das rotas usam a mesma configuração
@@ -70,6 +71,10 @@ src/
   vermelho de status aparece só em OOS, sempre com ícone e rótulo. Todo gráfico
   tem tooltip (mouse e teclado) e tabela com os mesmos valores. Variações usam
   seta e texto ("piora"/"melhora" para leitores de tela), não só cor.
+- **Relatórios**: a prévia vem do JSON (sem auditoria) e a emissão baixa o PDF
+  com a mesma autenticação do resto da API (`http.download`). Depois da
+  emissão, timeline e audit trail são atualizados e a interface compara a
+  impressão digital do PDF (`X-Report-SHA256`) com a da prévia.
 
 ## Executando
 
@@ -96,4 +101,5 @@ Os testes renderizam a aplicação real (rotas, autenticação e providers) com 
 `fetch` simulado: login e retorno à página pedida, sessão expirada, menu e
 rotas por perfil, ações do workflow por status e permissão, aprovação com
 senha, prévia OOS no lançamento, justificativa obrigatória na correção,
-formatação de decimais e datas, e o texto da timeline.
+formatação de decimais e datas, o texto da timeline, e a prévia, emissão e
+download do relatório.

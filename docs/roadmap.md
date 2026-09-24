@@ -15,8 +15,8 @@ sistema funcionando, testado e versionado.
 | 8     | Instrument Simulator        | ✅ Concluída |
 | 9     | Frontend                    | ✅ Concluída |
 | 10    | Dashboard                   | ✅ Concluída |
-| 11    | Relatórios                  | ⏳ Próxima   |
-| 12    | Testes                      | Planejada    |
+| 11    | Relatórios                  | ✅ Concluída |
+| 12    | Testes                      | ⏳ Próxima   |
 | 13    | Docker                      | Planejada    |
 | 14    | Documentação e apresentação | Planejada    |
 
@@ -133,14 +133,27 @@ sistema funcionando, testado e versionado.
 - Testes: domínio (janelas, fuso na virada do mês, taxas, tempos), API com
   cenário controlado e com os dados de demonstração, e Vitest da tela.
 
-### ETAPA 11: Relatórios
+### ETAPA 11: Relatórios ✅
 - Relatório da amostra (JSON + PDF): código, produto, lote, recebimento, testes, resultados, limites, status, analista, revisor, data de aprovação.
 - Geração registrada no audit trail.
+- Regras RN-27 (só amostras aprovadas ou reprovadas; `409 REPORT_NOT_AVAILABLE`
+  nos demais status) e RN-28 (cada emissão do PDF registra `REPORT_GENERATED`
+  com a impressão digital SHA-256 do conteúdo; a prévia em JSON não audita).
+- `GET /reports/samples/{id}` (prévia) e `GET /reports/samples/{id}/pdf`
+  (ReportLab, A4, cabeçalho e rodapé com "Página X de Y", emissão nº e
+  impressão digital). O relatório mostra todas as versões dos resultados
+  corrigidos, inclusive OOS, e os testes cancelados com justificativa.
+- Tela de relatórios (lista de amostras revisadas, prévia com o mesmo conteúdo
+  do PDF, emissão com download) e atalho no detalhe da amostra; a emissão
+  aparece na Sample Timeline.
+- Testes: domínio (formatação sem arredondar dígitos, fuso, impressão digital),
+  API (permissões, disponibilidade, conteúdo, PDF lido com pypdf, audit e cadeia
+  íntegra, relatório de várias páginas) e Vitest das telas.
 
 ### ETAPA 12: Testes
 - Cada etapa já entrega os testes do que implementa. Aqui, a cobertura é
   consolidada: fluxo ponta a ponta, cenários negativos de cada regra de
-  negócio (RN-01 a RN-26) e testes contra PostgreSQL real.
+  negócio (RN-01 a RN-28) e testes contra PostgreSQL real.
 - Pipeline de CI (lint + testes + build do frontend).
 
 ### ETAPA 13: Docker

@@ -110,6 +110,12 @@ Cada regra tem um identificador e será coberta por testes automatizados.
 | RN-25 | Usuários não são excluídos, apenas desativados. Usuário inativo não autentica.                          |
 | RN-26 | Tentativas de login, com sucesso ou não, são auditadas.                                                 |
 
+### Relatórios
+| ID    | Regra                                                                                                   |
+| ----- | ------------------------------------------------------------------------------------------------------- |
+| RN-27 | O relatório de análise só é emitido para amostras revisadas (`APPROVED` ou `REJECTED`); em andamento ou cancelada, a API responde `409 REPORT_NOT_AVAILABLE`. |
+| RN-28 | Cada emissão do PDF é registrada no audit trail (`REPORT_GENERATED`) com a impressão digital SHA-256 do conteúdo, a mesma impressa no rodapé. A prévia em JSON não gera registro. O relatório mostra todas as versões de resultados corrigidos (inclusive OOS) e os testes cancelados com justificativa. |
+
 ## 4. Avaliação de especificação (OOS)
 
 ```
@@ -198,4 +204,4 @@ OOS mesmo quando o resultado vigente já está dentro da especificação.
 | `RESULT_ENTERED`            | Primeiro resultado do teste                  | — → valor, `spec_status`, origem      |
 | `RESULT_AMENDED`            | Correção de resultado                        | 7.3 → 7.1 + justificativa             |
 | `INSTRUMENT_MESSAGE_REJECTED` | Mensagem de instrumento recusada           | — → motivo                            |
-| `REPORT_GENERATED`          | Exportação do PDF                            | —                                     |
+| `REPORT_GENERATED`          | Emissão do relatório em PDF                  | — → formato, status, impressão digital |

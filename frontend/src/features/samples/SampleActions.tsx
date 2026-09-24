@@ -1,5 +1,6 @@
-import { Ban, CircleCheck, CircleX, Pencil, Play, Send, Undo2 } from 'lucide-react'
+import { Ban, CircleCheck, CircleX, FileText, Pencil, Play, Send, Undo2 } from 'lucide-react'
 import { type ReactNode, useState } from 'react'
+import { Link } from 'react-router'
 
 import { type ActionPayload, samplesApi } from '../../api/samples'
 import { Button } from '../../components/Button'
@@ -32,6 +33,8 @@ const ACTION_ICON: Record<SampleAction, ReactNode> = {
 }
 
 const EDITABLE = new Set(['RECEIVED', 'IN_ANALYSIS'])
+// RN-27: o relatório existe depois da aprovação ou reprovação.
+const REPORTABLE = new Set(['APPROVED', 'REJECTED'])
 
 type Dialog = 'approve' | 'reject' | 'return_to_analysis' | 'cancel' | 'edit' | null
 
@@ -88,6 +91,12 @@ export function SampleActions({ sample }: { sample: SampleDetail }) {
   return (
     <>
       <div className="action-bar">
+        {can('REPORT_EXPORT') && REPORTABLE.has(sample.status) && (
+          <Link to={`/reports/${sample.id}`} className="btn btn--secondary">
+            <FileText aria-hidden />
+            <span>Relatório</span>
+          </Link>
+        )}
         {can('SAMPLE_CREATE') && EDITABLE.has(sample.status) && (
           <Button icon={<Pencil aria-hidden />} onClick={() => setDialog('edit')}>
             Editar dados

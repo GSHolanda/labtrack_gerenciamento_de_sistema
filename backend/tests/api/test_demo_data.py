@@ -253,3 +253,31 @@ def test_demo_feeds_the_dashboard(demo: tuple[Session, DemoSummary], client: Tes
         "MOISTURE",
         "AVG_WEIGHT",
     }
+
+
+def test_demo_reviewed_samples_have_reports(
+    demo: tuple[Session, DemoSummary], client: TestClient
+) -> None:
+    session, _ = demo
+    token = client.post(
+        f"{API}/auth/login", data={"username": "ana.souza", "password": PASSWORD}
+    ).json()["access_token"]
+    headers = {"Authorization": f"Bearer {token}"}
+
+    reviewed = session.scalars(
+        select(Sample).where(Sample.status.in_(["APPROVED", "REJECTED"])).order_by(Sample.id)
+    ).all()
+    assert len(reviewed) == 12
+    for sample in reviewed:
+        response = client.get(f"{API}/reports/samples/{sample.id}", headers=headers)
+        assert response.status_code == 200, response.text
+        report = response.json()
+        assert report["decision"]["status"] == sample.status
+        assert report["summary"]["tests_reported"] > 0
+        if sample.status == "APPROVED":
+            assert report["summary"]["current_oos"] == 0  # RN-12
+
+    response = client.get(f"{API}/reports/samples/{reviewed[0].id}/pdf", headers=headers)
+    assert response.status_code == 200
+    assert response.content.startswith(b"%PDF")
+    assert AuditService(session).verify().valid
