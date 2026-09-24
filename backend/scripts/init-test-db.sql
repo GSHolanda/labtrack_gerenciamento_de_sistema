@@ -1,2 +1,3 @@
--- Banco separado para os testes automatizados (tests/db/test_postgres.py).
-CREATE DATABASE labtrack_test OWNER labtrack;
+-- Banco separado para os testes automatizados (pytest --postgres, tests/db).
+-- Criado pelo usuário do POSTGRES_USER, que fica como dono.
+CREATE DATABASE labtrack_test;

@@ -208,8 +208,35 @@ def test_cli_writes_simulator_config(
     assert stat.S_IMODE(config_path.stat().st_mode) == 0o600
 
 
+def test_cli_if_empty_skips_a_populated_database(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Subidas repetidas do Docker: a segunda não falha nem altera nada."""
+    url = f"sqlite+pysqlite:///{tmp_path / 'demo.db'}"
+    engine = build_engine(url)
+    with build_session_factory(engine)() as session:
+        _create_schema(session)
+    monkeypatch.setattr(cli, "get_settings", lambda: Settings(database_url=url, _env_file=None))
+    config_path = tmp_path / "config.json"
+
+    cli.main(["seed-demo", "--if-empty", "--simulator-config", str(config_path)])
+    first_config = config_path.read_text(encoding="utf-8")
+    with build_session_factory(engine)() as session:
+        samples = _count(session, Sample)
+    capsys.readouterr()
+
+    cli.main(["seed-demo", "--if-empty", "--simulator-config", str(config_path)])
+    assert "Demonstração já gerada anteriormente" in capsys.readouterr().out
+    assert config_path.read_text(encoding="utf-8") == first_config  # chaves preservadas
+    with build_session_factory(engine)() as session:
+        assert _count(session, Sample) == samples
+    with pytest.raises(SystemExit, match="já contém dados"):
+        cli.main(["seed-demo"])  # sem a opção, continua sendo erro
+    engine.dispose()
+
+
 def test_cli_refuses_demo_data_in_production(monkeypatch: pytest.MonkeyPatch) -> None:
-    production = Settings(environment="production", _env_file=None)
+    production = Settings(environment="production", jwt_secret_key="k" * 48, _env_file=None)
     monkeypatch.setattr(cli, "get_settings", lambda: production)
     with pytest.raises(SystemExit, match="produção"):
         cli.main(["seed-demo"])

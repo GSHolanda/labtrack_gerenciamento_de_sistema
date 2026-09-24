@@ -17,8 +17,8 @@ sistema funcionando, testado e versionado.
 | 10    | Dashboard                   | ✅ Concluída |
 | 11    | Relatórios                  | ✅ Concluída |
 | 12    | Testes                      | ✅ Concluída |
-| 13    | Docker                      | ⏳ Próxima   |
-| 14    | Documentação e apresentação | Planejada    |
+| 13    | Docker                      | ✅ Concluída |
+| 14    | Documentação e apresentação | ⏳ Próxima   |
 
 ---
 
@@ -166,9 +166,19 @@ sistema funcionando, testado e versionado.
   75% das linhas (de 51% para 79%, com testes das telas que faltavam).
 - GitHub Actions: backend, backend no PostgreSQL 16, simulador e frontend.
 
-### ETAPA 13: Docker
+### ETAPA 13: Docker ✅
 - Dockerfiles *multi-stage* (backend e frontend com Nginx).
 - `docker compose up` sobe banco, migrações, seed, API, frontend e simulador.
+- Imagens sem root (UID 10001), dependências em camada própria, healthchecks;
+  Nginx com rotas da SPA, cache dos arquivos com hash, cabeçalhos de segurança
+  e proxy de `/api` e `/docs`.
+- Inicialização idempotente: `seed-demo --if-empty` só gera a demonstração na
+  primeira subida; as chaves do simulador ficam num volume compartilhado.
+- Produção: a API recusa a chave JWT de desenvolvimento com
+  `LABTRACK_ENVIRONMENT=production`; caminho documentado em
+  [deployment.md](deployment.md).
+- CI: job Docker constrói as imagens, sobe a stack e roda
+  `scripts/smoke_test.py` duas vezes (primeira subida e subida com dados).
 
 ### ETAPA 14: Documentação e apresentação
 - README final com screenshots.

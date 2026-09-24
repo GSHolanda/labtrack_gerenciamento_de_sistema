@@ -8,6 +8,7 @@ def test_settings_are_read_from_prefixed_environment_variables(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setenv("LABTRACK_ENVIRONMENT", "production")
+    monkeypatch.setenv("LABTRACK_JWT_SECRET_KEY", "k" * 48)
     monkeypatch.setenv("LABTRACK_LOG_FORMAT", "json")
     monkeypatch.setenv("LABTRACK_CORS_ORIGINS", '["https://labtrack.example.com"]')
 
@@ -32,3 +33,16 @@ def test_lab_timezone_is_validated(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("LABTRACK_LAB_TIMEZONE", "Marte/Olympus")
     with pytest.raises(ValidationError, match="Fuso horário desconhecido"):
         Settings(_env_file=None)
+
+
+def test_production_refuses_the_development_jwt_secret(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("LABTRACK_ENVIRONMENT", "production")
+    with pytest.raises(ValidationError, match="LABTRACK_JWT_SECRET_KEY"):
+        Settings(_env_file=None)
+
+    monkeypatch.setenv("LABTRACK_JWT_SECRET_KEY", "uma-chave-propria-com-mais-de-32-caracteres")
+    assert Settings(_env_file=None).environment == "production"
+    # Em desenvolvimento e testes a chave padrão continua aceita.
+    monkeypatch.setenv("LABTRACK_ENVIRONMENT", "development")
+    monkeypatch.delenv("LABTRACK_JWT_SECRET_KEY")
+    assert Settings(_env_file=None).environment == "development"

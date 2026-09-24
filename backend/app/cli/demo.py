@@ -384,6 +384,10 @@ class DemoDataError(Exception):
     pass
 
 
+class DatabaseNotEmptyError(DemoDataError):
+    """O banco já tem dados: a demonstração só é gerada numa instalação nova."""
+
+
 @dataclass
 class DemoSummary:
     password: str
@@ -459,7 +463,7 @@ class _DemoBuilder:
         users = UserRepository(self.session)
         occupied += [f"usuário {name}" for name, _, _ in USERS if users.find_by_username(name)]
         if occupied:
-            raise DemoDataError(
+            raise DatabaseNotEmptyError(
                 "O banco já contém dados (" + ", ".join(occupied) + "). "
                 "Gere a demonstração em um banco novo."
             )

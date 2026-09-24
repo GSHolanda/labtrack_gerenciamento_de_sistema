@@ -6,7 +6,7 @@ total, regras de negócio de um ambiente regulado, integração com instrumentos
 e audit trail imutável.
 
 > 🚧 **Em desenvolvimento.** O projeto é construído em 14 etapas incrementais.
-> Veja o [plano de implementação](docs/roadmap.md). Etapa atual: **12 de 14 concluídas**.
+> Veja o [plano de implementação](docs/roadmap.md). Etapa atual: **13 de 14 concluídas**.
 
 ---
 
@@ -68,11 +68,26 @@ labtrack/
 │   │   ├── schemas/         #   Contratos da API (Pydantic)
 │   │   ├── database/        #   Engine, sessão, base declarativa
 │   │   └── core/            #   Configuração, logs, segurança
-│   └── tests/               #   Testes unitários, de API e de arquitetura
+│   └── tests/               #   Testes unitários, de API, de banco e ponta a ponta
 ├── frontend/                # Cliente web React + TypeScript
 ├── instrument-simulator/    # Simulador de equipamentos (processo separado)
-└── docs/                    # Arquitetura, modelo de dados, API, fluxo, roadmap
+├── scripts/                 # Smoke test da stack Docker
+├── docker-compose.yml       # Stack completa (ou só o banco: docker compose up -d db)
+└── docs/                    # Arquitetura, dados, API, fluxo, testes, Docker, roadmap
 ```
+
+## Execução rápida (Docker)
+
+```bash
+docker compose up --build
+```
+
+Abra http://localhost:8080 e entre com um dos usuários listados no login (senha
+`Demo@2026`). O compose sobe o PostgreSQL, aplica as migrações, gera a
+demonstração (20 amostras em todas as etapas do fluxo), a API, a interface
+servida pelo Nginx e o simulador de instrumentos enviando resultados. O Swagger
+fica em http://localhost:8080/docs. Detalhes, variáveis e o caminho para
+produção em [docs/deployment.md](docs/deployment.md).
 
 ## Documentação
 
@@ -83,9 +98,10 @@ labtrack/
 | [API](docs/api.md)                               | Endpoints, matriz de permissões, integração com instrumentos    |
 | [Ciclo da amostra](docs/sample-lifecycle.md)     | Máquina de estados, regras de negócio (RN-01 a RN-28), timeline |
 | [Testes](docs/testing.md)                        | Camadas de teste, CI, cobertura e matriz regra → teste          |
+| [Execução com Docker](docs/deployment.md)        | Serviços, imagens, variáveis, produção e smoke test             |
 | [Plano de implementação](docs/roadmap.md)        | As 14 etapas e o status de cada uma                             |
 
-## Como executar (estado atual)
+## Como executar (desenvolvimento)
 
 A API já oferece autenticação, cadastros, amostras, testes atribuídos,
 resultados manuais e revisão completa. A ETAPA 6 inclui avaliação OOS com
@@ -126,7 +142,12 @@ todas as regras de negócio com rastreabilidade regra → teste, a suíte inteir
 também no PostgreSQL, cobertura mínima e integração contínua no GitHub Actions.
 Veja a [estratégia de testes](docs/testing.md).
 
-A próxima entrega empacota tudo em contêineres (ETAPA 13).
+A ETAPA 13 empacota tudo em contêineres: imagens *multi-stage* sem root para a
+API e a interface (Nginx), o simulador e um `docker compose up` que sobe a
+stack inteira, validado no CI por um smoke test. Veja a
+[execução com Docker](docs/deployment.md).
+
+A próxima entrega é a documentação final e a apresentação do projeto (ETAPA 14).
 
 **Backend**
 
@@ -174,7 +195,7 @@ npm test                           # testes (Vitest)
 Com os dados de demonstração, entre como `carlos.silva` (analista),
 `ana.souza` (revisora), `marcos.lima` (gestor) ou `admin`, senha `Demo@2026`.
 
-A execução completa com `docker compose up` chega na ETAPA 13.
+Para a stack completa em contêineres, veja a [execução rápida](#execução-rápida-docker).
 
 ## Integridade de dados
 

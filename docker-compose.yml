@@ -1,23 +1,91 @@
-# Ambiente de desenvolvimento: por enquanto apenas o PostgreSQL.
-# A stack completa (API, frontend, simulador) é adicionada na ETAPA 13.
+# LabTrack completo: `docker compose up --build` sobe o PostgreSQL, aplica as
+# migrações, gera a demonstração (primeira subida), a API, a interface e o
+# simulador de instrumentos. Interface em http://localhost:8080 (Swagger em /docs).
+#
+# Só o banco, para desenvolver com a API e o Vite locais: `docker compose up -d db`.
+# Variáveis opcionais: veja .env.example (copie para .env).
+name: labtrack
+
+x-backend-env: &backend-env
+  LABTRACK_ENVIRONMENT: ${LABTRACK_ENVIRONMENT:-development}
+  LABTRACK_DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-labtrack}:${POSTGRES_PASSWORD:-labtrack}@db:5432/${POSTGRES_DB:-labtrack}
+  # A chave padrão só vale fora de produção (a API recusa em LABTRACK_ENVIRONMENT=production).
+  LABTRACK_JWT_SECRET_KEY: ${LABTRACK_JWT_SECRET_KEY:-dev-secret-change-me-in-production-please}
+  LABTRACK_LAB_TIMEZONE: ${LABTRACK_LAB_TIMEZONE:-America/Sao_Paulo}
+  LABTRACK_LAB_NAME: ${LABTRACK_LAB_NAME:-Laboratório de Controle de Qualidade}
+  LABTRACK_CORS_ORIGINS: '["http://localhost:${LABTRACK_HTTP_PORT:-8080}"]'
+
 services:
   db:
     image: postgres:16-alpine
-    container_name: labtrack-db
     environment:
-      POSTGRES_USER: labtrack
-      POSTGRES_PASSWORD: labtrack
-      POSTGRES_DB: labtrack
+      POSTGRES_USER: ${POSTGRES_USER:-labtrack}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-labtrack}
+      POSTGRES_DB: ${POSTGRES_DB:-labtrack}
     ports:
-      - "5432:5432"
+      - "${LABTRACK_DB_PORT:-5432}:5432"
     volumes:
       - labtrack-db-data:/var/lib/postgresql/data
       - ./backend/scripts/init-test-db.sql:/docker-entrypoint-initdb.d/init-test-db.sql:ro
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U labtrack -d labtrack"]
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
       interval: 5s
       timeout: 3s
       retries: 10
+    restart: unless-stopped
+
+  # Tarefa única: migrações e, na demonstração, dados de exemplo e chaves do simulador.
+  migrate:
+    build: ./backend
+    image: labtrack-backend
+    command: ["sh", "scripts/docker-init.sh"]
+    environment:
+      <<: *backend-env
+      LABTRACK_SEED_DEMO: ${LABTRACK_SEED_DEMO:-true}
+      LABTRACK_DEMO_PASSWORD: ${LABTRACK_DEMO_PASSWORD:-Demo@2026}
+    volumes:
+      - simulator-config:/shared
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: "no"
+
+  api:
+    build: ./backend
+    image: labtrack-backend
+    environment:
+      <<: *backend-env
+      # Só o Nginx e os serviços internos alcançam a API (a porta não é publicada).
+      FORWARDED_ALLOW_IPS: "*"
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        VITE_DEMO_MODE: ${LABTRACK_DEMO_MODE:-true}
+    image: labtrack-frontend
+    ports:
+      - "${LABTRACK_HTTP_PORT:-8080}:80"
+    depends_on:
+      api:
+        condition: service_healthy
+    restart: unless-stopped
+
+  simulator:
+    build: ./instrument-simulator
+    image: labtrack-simulator
+    command: ["run", "--config", "/shared/config.json", "--interval", "${LABTRACK_SIMULATOR_INTERVAL:-30}"]
+    volumes:
+      - simulator-config:/shared:ro
+    depends_on:
+      api:
+        condition: service_healthy
+    restart: unless-stopped
 
 volumes:
   labtrack-db-data:
+  simulator-config:

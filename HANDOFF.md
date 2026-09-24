@@ -27,7 +27,8 @@ Leia primeiro: `docs/architecture.md`, `docs/database.md`, `docs/api.md`,
 | 10 Dashboard (indicadores, séries, gráficos acessíveis) | ✅ concluída e validada |
 | 11 Relatórios (prévia JSON, PDF auditado com impressão digital) | ✅ concluída e validada |
 | 12 Testes (E2E, rastreabilidade RN, PostgreSQL, cobertura, CI) | ✅ concluída e validada |
-| 13 e 14 | pendentes (ver `docs/roadmap.md`) |
+| 13 Docker (imagens, compose completo, smoke test no CI) | ✅ concluída e validada |
+| 14 | pendente (ver `docs/roadmap.md`) |
 
 ## ETAPA 6: entrega concluída
 - `app/domain/specification.py::evaluate()` (OOS, limites inclusivos, Decimal) + testes unitários.
@@ -218,19 +219,42 @@ Leia primeiro: `docs/architecture.md`, `docs/database.md`, `docs/api.md`,
 - CI: `.github/workflows/ci.yml` com os jobs backend, backend-postgres
   (serviço `postgres:16`), simulator e frontend.
 
-### Próximos passos: ETAPA 13 (Docker)
-1. Dockerfiles *multi-stage*: backend (Python 3.11 slim, usuário sem root,
-   `uvicorn`), frontend (build do Vite servido por Nginx com proxy `/api`).
-2. `docker compose up` sobe PostgreSQL, aplica as migrações, gera os dados de
-   demonstração (`seed-demo` com `--simulator-config`), API, frontend e o
-   simulador em ciclo. Atenção: `seed-demo` recusa banco com dados; o compose
-   deve rodá-lo só na primeira subida.
-3. Variáveis por `.env` (`LABTRACK_*`), healthchecks (`/api/v1/health/ready`) e
-   um job de CI que construa as imagens.
+## ETAPA 13: entrega concluída
+- `backend/Dockerfile` (*multi-stage*, dependências lidas do `pyproject.toml`
+  numa camada própria, virtualenv copiado para `python:3.11-slim`, usuário
+  `labtrack` UID 10001, healthcheck em `/api/v1/health/ready`, Uvicorn com
+  `--proxy-headers`), `backend/scripts/docker-init.sh` (migrações e, com
+  `LABTRACK_SEED_DEMO=true`, `seed-demo --if-empty`).
+- `frontend/Dockerfile` (Node 22 → Nginx 1.28, `VITE_DEMO_MODE` como build arg)
+  e `frontend/nginx.conf` (SPA, `/assets` com cache longo, cabeçalhos de
+  segurança, proxy de `/api/`, `/docs`, `/redoc`, `/healthz`).
+- `instrument-simulator/Dockerfile` (mesmo UID para ler `/shared/config.json`).
+- `docker-compose.yml`: `db` → `migrate` (tarefa única) → `api` (sem porta
+  publicada, `FORWARDED_ALLOW_IPS=*`) → `frontend` (:8080) e `simulator`;
+  volumes `labtrack-db-data` e `simulator-config`. `docker compose up -d db`
+  continua servindo ao desenvolvimento local. `.env.example` na raiz.
+- Backend: `DatabaseNotEmptyError` + `seed-demo --if-empty` (segunda subida não
+  falha); `Settings` recusa a chave JWT de desenvolvimento em produção.
+- `scripts/smoke_test.py` (só biblioteca padrão) e job `docker` no CI.
+- Neste ambiente de nuvem, o Docker Hub respondeu 429: as imagens base vieram de
+  `mirror.gcr.io` e o build local passou pelo proxy com variantes dos
+  Dockerfiles fora do repositório (CA e proxy injetados). Os Dockerfiles do
+  repositório são os padrão e são construídos sem ajustes no CI.
+
+### Próximos passos: ETAPA 14 (documentação e apresentação)
+1. README final: visão do produto, capturas de tela (dashboard, amostra com
+   timeline, relatório, audit trail), execução com Docker em primeiro lugar e
+   os parágrafos "A ETAPA N entrega..." condensados numa visão por funcionalidade.
+2. Diagramas: arquitetura (contêineres e camadas), ER e ciclo da amostra
+   (conferir os existentes em `docs/architecture.md`, `docs/database.md` e
+   `docs/sample-lifecycle.md`).
+3. `docs/apresentacao.md`: roteiro de 5 minutos, decisões técnicas e perguntas
+   prováveis de entrevista com respostas. Relatório final do projeto.
 
 ## Como rodar
 ```bash
-docker compose up -d db          # ou PostgreSQL local (user/senha/db: labtrack)
+docker compose up --build        # stack completa: http://localhost:8080 (ver docs/deployment.md)
+docker compose up -d db          # só o banco, ou PostgreSQL local (user/senha/db: labtrack)
 cd backend && python -m venv .venv && . .venv/bin/activate && pip install -e ".[dev]"
 alembic upgrade head && python -m app.cli create-admin
 # ou, num banco vazio: python -m app.cli seed-demo --simulator-config ../instrument-simulator/config.json
@@ -243,13 +267,13 @@ python -m simulator run --once   # com a API rodando e config.json gerado
 cd ../frontend && npm install && npm run dev   # http://localhost:5173, proxy /api → :8000
 npm test && npm run lint && npm run build
 ```
-Validação da ETAPA 12: backend **467 testes em SQLite** (+6 exclusivos do
-PostgreSQL) com cobertura de **96,9%** (ramos incluídos; mínimo 95%), **473 com
-`--postgres`** no PostgreSQL 16, simulador **41**, frontend **94** (Vitest) com
-**79%** das linhas, Ruff, oxlint, `tsc` e `vite build` limpos. Os jobs Python do
-CI foram ensaiados num virtualenv novo (`pip install -e "./backend[dev]"
--e "./instrument-simulator[dev]"`) e o do frontend com `npm ci`. Relatório da
-etapa: `docs/relatorios/etapa-12.md`.
+Validação da ETAPA 13: stack completa com `docker compose up --wait` (primeira
+subida e subida com dados), `scripts/smoke_test.py` aprovado nas duas (16
+verificações, com o simulador enviando resultados), interface Dockerizada no
+Chromium (login com usuários de demonstração, dashboard, equipamentos online,
+emissão do PDF, recarga de rota profunda) sem erros de console, IP do cliente
+registrado no audit trail pelo proxy. Backend 469 testes em SQLite (96,9% de cobertura) e 475 com `--postgres`, simulador 41,
+frontend 94. Relatório: `docs/relatorios/etapa-13.md`.
 
 No Windows, o ambiente local já está em `backend/.venv`; use
 `.\backend\.venv\Scripts\Activate.ps1` a partir da raiz ou execute diretamente

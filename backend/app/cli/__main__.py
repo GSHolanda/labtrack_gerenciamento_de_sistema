@@ -6,7 +6,8 @@
 
 ``python -m app.cli seed-demo [--simulator-config ../instrument-simulator/config.json]``
     Gera os dados de demonstração num banco vazio, pelos próprios serviços. A senha
-    dos usuários vem de ``LABTRACK_DEMO_PASSWORD`` (padrão: ``Demo@2026``).
+    dos usuários vem de ``LABTRACK_DEMO_PASSWORD`` (padrão: ``Demo@2026``). Com
+    ``--if-empty``, um banco que já tem dados não é erro (subidas repetidas do Docker).
 """
 
 import argparse
@@ -17,7 +18,7 @@ import sys
 from pathlib import Path
 
 from app.cli.admin import ensure_admin
-from app.cli.demo import DemoDataError, DemoSummary, seed_demo
+from app.cli.demo import DatabaseNotEmptyError, DemoDataError, DemoSummary, seed_demo
 from app.core.config import get_settings
 from app.database.session import build_engine, build_session_factory
 
@@ -34,7 +35,7 @@ def create_admin(username: str, email: str, full_name: str, password: str) -> st
     return f"Administrador '{username}' criado."
 
 
-def run_seed_demo(simulator_config: Path | None, api_url: str) -> None:
+def run_seed_demo(simulator_config: Path | None, api_url: str, *, if_empty: bool = False) -> None:
     settings = get_settings()
     if settings.environment == "production":
         sys.exit("Dados de demonstração não podem ser gerados em produção.")
@@ -46,6 +47,11 @@ def run_seed_demo(simulator_config: Path | None, api_url: str) -> None:
     with session:
         try:
             summary = seed_demo(session, password)
+        except DatabaseNotEmptyError as error:
+            if not if_empty:
+                sys.exit(str(error))
+            print("Demonstração já gerada anteriormente; nada foi alterado.")
+            return
         except DemoDataError as error:
             sys.exit(str(error))
     _print_summary(summary)
@@ -104,10 +110,15 @@ def main(argv: list[str] | None = None) -> None:
         default="http://localhost:8000/api/v1",
         help="URL da API gravada na configuração do simulador",
     )
+    demo.add_argument(
+        "--if-empty",
+        action="store_true",
+        help="Se o banco já tiver dados, termina sem erro e sem alterar nada",
+    )
     args = parser.parse_args(argv)
 
     if args.command == "seed-demo":
-        run_seed_demo(args.simulator_config, args.api_url)
+        run_seed_demo(args.simulator_config, args.api_url, if_empty=args.if_empty)
         return
 
     password = os.getenv("LABTRACK_ADMIN_PASSWORD") or getpass.getpass("Senha do administrador: ")
